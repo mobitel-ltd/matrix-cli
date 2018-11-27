@@ -1,0 +1,39 @@
+{
+  "name": "matrix-leave-outdated",
+  "version": "1.0.0",
+  "description": "Console util to leave all old matrix rooms by date",
+  "main": "index.js",
+  "bin": {
+    "leave": "./src/bin/index.js"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/grigori-gru/matrix-leave-outdated.git"
+  },
+  "keywords": [
+    "matrix",
+    "riot",
+    "node",
+    "js"
+  ],
+  "author": "grigori-gru",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/grigori-gru/matrix-leave-outdated/issues"
+  },
+  "homepage": "https://github.com/grigori-gru/matrix-leave-outdated#readme",
+  "dependencies": {
+    "matrix-js-sdk": "0.14.1",
+    "moment": "^2.22.2",
+    "ora": "^3.0.0",
+    "readline-sync": "^1.4.9"
+  },
+  "devDependencies": {
+    "eslint": "^5.9.0",
+    "eslint-config-google": "^0.11.0",
+    "jest": "^23.6.0"
+  }
+}
