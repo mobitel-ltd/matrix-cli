@@ -2,36 +2,45 @@ const moment = require('moment');
 const url = require('url');
 
 const protocol = 'https';
+const matrixHost = 'matrix';
 
-const isLimit = (str) => +str > 1 && +str < 13;
+const getMatrixHostName = domain => [matrixHost, domain].join('.');
 
-const getLastRealSenderEvent = (events, botName) =>
-    events.reverse().find((ev) => !ev.getSender().includes(botName));
+const isLimit = str => +str > 1 && +str < 13;
 
-const getLimitTimestamp = (limit) => moment().subtract(limit, 'months').valueOf();
+const getLastRealSenderEvent = (events, ignoreUsers) =>
+    events.reverse().find(ev =>
+        !(ignoreUsers || []).some(user => ev.getSender().includes(user)));
 
-const parseRoom = (room, botName) => {
-    const {roomId, name: roomName} = room;
-    const lastEvent = getLastRealSenderEvent(room.timeline, botName);
+const getLimitTimestamp = limit => moment().subtract(limit, 'months').valueOf();
 
+const parseRoom = ignoreUsers => ({roomId, name: roomName, timeline}) => {
+    const lastEvent = getLastRealSenderEvent(timeline, ignoreUsers);
+    if (!lastEvent) {
+        return;
+    }
     const timestamp = lastEvent.getTs();
     const date = lastEvent.getDate();
 
     return {roomName, roomId, timestamp, date};
 };
 
-const getOutdatedRooms = (limit) => ({timestamp}) => (timestamp < getLimitTimestamp(limit));
+const getOutdatedRooms = limit => ({timestamp}) => (timestamp < getLimitTimestamp(limit));
 
-const getRoomsLastUpdate = (rooms, date, botName) =>
+const getRoomsLastUpdate = (rooms, date, ignoreUsers) =>
     rooms
-        .map(parseRoom, botName)
+        .map(parseRoom(ignoreUsers || []))
         .filter(Boolean)
         .filter(getOutdatedRooms(date));
 
+const getBaseUrl = domain => url.format({protocol, hostname: getMatrixHostName(domain)});
+const getUserId = (userName, domain) => `@${userName}:${getMatrixHostName(domain)}`;
+
 module.exports = {
+    getBaseUrl,
+    getUserId,
+    getLastRealSenderEvent,
     isLimit,
     getLimitTimestamp,
     getRoomsLastUpdate,
-    getBaseUrl: (hostname) => url.format({protocol, hostname}),
-    getUserId: (userName, domain) => `@${userName}:${domain}`,
 };

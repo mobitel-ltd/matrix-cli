@@ -4,11 +4,18 @@ const {getBaseUrl, getUserId, getRoomsLastUpdate} = require('./utils');
 
 const spinLoginText = 'login with password';
 const spinConnectText = 'start matrix client';
-const spinSyncText = 'wait for syncing with matrix server\n';
+const spinSyncText = 'wait for sync with matrix server\n';
+
+const getReadyClient = client => new Promise((resolve, reject) => {
+    client.on('sync', (state) => {
+        if (state === 'SYNCING') {
+            resolve(client);
+        }
+    });
+});
 
 const getClient = async (domain, userName, password) => {
     let spinner;
-
 
     try {
         const baseUrl = getBaseUrl(domain);
@@ -20,43 +27,45 @@ const getClient = async (domain, userName, password) => {
         const {access_token: accessToken} = await client.loginWithPassword(userId, password);
         spinner.succeed();
 
-        spinner.start(spinConnectText);
+        spinner = ora(spinConnectText);
+        spinner.start();
         const matrixClient = sdk.createClient({baseUrl, accessToken, userId});
         await matrixClient.startClient({lazyLoadMembers: true});
         spinner.succeed();
 
-        spinner.start(spinSyncText);
-        return new Promise((resolve, reject) => {
-            matrixClient.on('sync', (state) => {
-                // console.log(state);
-                if (state === 'SYNCING') {
-                    spinner.succeed();
-                    resolve(matrixClient);
-                }
-            });
-        });
+        spinner = ora(spinSyncText);
+        spinner.start();
+        const readyClient = await getReadyClient(matrixClient);
+        spinner.succeed();
+
+        return readyClient;
     } catch (error) {
         spinner.fail();
         console.error(error);
+        throw error;
     }
 };
 
-const getRooms = async (matrixClient, limit, botName) => {
+const getRooms = async (matrixClient, limit, ignoreUsers) => {
     const rooms = await matrixClient.getRooms();
-    return getRoomsLastUpdate(rooms, limit, botName);
+    return getRoomsLastUpdate(rooms, limit, ignoreUsers);
 };
 
 const leaveRooms = async (matrixClient, rooms) => {
     // TEST ONLY
     const [expectedRoom] = rooms;
-    await Promise.all([expectedRoom]
+    const res = await Promise.all([expectedRoom]
     // await Promise.all(rooms
         .map(async (data) => {
-            await matrixClient.leave(data.roomId);
-            console.log('Room successfully leaved "%s"', data.roomName);
+            try {
+                await matrixClient.leave(data.roomId);
+                return {name: data.roomName};
+            } catch (error) {
+                return ({data, error});
+            }
         }));
 
-    return;
+    return res;
 };
 
 module.exports = {

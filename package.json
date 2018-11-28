@@ -1,6 +1,6 @@
 {
   "name": "matrix-leave-outdated",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Console util to leave all old matrix rooms by date",
   "main": "index.js",
   "bin": {
@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/grigori-gru/matrix-leave-outdated#readme",
   "dependencies": {
+    "chalk": "^2.4.1",
     "matrix-js-sdk": "0.14.1",
     "moment": "^2.22.2",
     "ora": "^3.0.0",

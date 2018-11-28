@@ -61,4 +61,4 @@ typings/
 .next
 
 ## tests
-__tests__
+index.test.js
