@@ -27,11 +27,11 @@ const parseRoom = ignoreUsers => ({roomId, name: roomName, timeline}) => {
 
 const getOutdatedRooms = limit => ({timestamp}) => (timestamp < getLimitTimestamp(limit));
 
-const getRoomsLastUpdate = (rooms, date, ignoreUsers) =>
+const getRoomsLastUpdate = (rooms, limit, ignoreUsers) =>
     rooms
         .map(parseRoom(ignoreUsers || []))
         .filter(Boolean)
-        .filter(getOutdatedRooms(date));
+        .filter(getOutdatedRooms(limit));
 
 const getBaseUrl = domain => url.format({protocol, hostname: getMatrixHostName(domain)});
 const getUserId = (userName, domain) => `@${userName}:${getMatrixHostName(domain)}`;

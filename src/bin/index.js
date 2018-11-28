@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const readline = require('readline-sync');
-const {getClient, leaveRooms, getRooms} = require('../lib');
+const {getClient, leaveRooms, getRooms} = require('../');
 const {isLimit} = require('../lib/utils');
 const chalk = require('chalk');
 
