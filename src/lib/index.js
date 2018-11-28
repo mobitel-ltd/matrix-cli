@@ -1,6 +1,7 @@
 const ora = require('ora');
 const sdk = require('matrix-js-sdk');
 const {getBaseUrl, getUserId, getRoomsLastUpdate} = require('./utils');
+const Listr = require('listr');
 
 const spinLoginText = 'login with password';
 const spinConnectText = 'start matrix client';
@@ -51,21 +52,25 @@ const getRooms = async (matrixClient, limit, ignoreUsers) => {
     return getRoomsLastUpdate(rooms, limit, ignoreUsers);
 };
 
+const getTask = matrixClient => ({roomId, roomName}) => {
+    const title = `Leaving room ${roomName}`;
+    const task = () => matrixClient.leave(roomId);
+
+    return {title, task};
+};
+
 const leaveRooms = async (matrixClient, rooms) => {
     // TEST ONLY
-    const [expectedRoom] = rooms;
-    const res = await Promise.all([expectedRoom]
-    // await Promise.all(rooms
-        .map(async (data) => {
-            try {
-                await matrixClient.leave(data.roomId);
-                return {name: data.roomName};
-            } catch (error) {
-                return ({data, error});
-            }
-        }));
+    // const [expectedRoom] = rooms;
+    // const preparedTasks = [expectedRoom].map(getTask(matrixClient));
+    try {
+        const preparedTasks = rooms.map(getTask(matrixClient));
+        const tasks = new Listr(preparedTasks, {concurrent: true, exitOnError: false});
 
-    return res;
+        await tasks.run();
+    } catch (err) {
+        return err.errors;
+    }
 };
 
 module.exports = {
