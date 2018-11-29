@@ -1,22 +1,31 @@
 #!/usr/bin/env node
 
 const readline = require('readline-sync');
-const {getClient, leaveRooms, getRooms} = require('../');
-const {isLimit} = require('../lib/utils');
+const Service = require('../');
+const {isLimit, getIgnoreUsers} = require('../utils');
 const chalk = require('chalk');
+require('dotenv').config();
 
 const {log, clear} = console;
 const defaultMonthsLimit = 6;
 
-clear();
-const domain = readline.question('What is your matrix domain?\n');
-clear();
-const userName = readline.question('What is your matrix name?\n');
-clear();
-const password = readline.question('What is your password?\n', {hideEchoBack: true});
-clear();
+const options = {
+    domain: process.env.TEST_DOMAIN,
+    userName: process.env.TEST_USERNAME,
+    password: process.env.TEST_PASSWORD,
+};
 
-const run = async (client) => {
+// clear();
+// const domain = readline.question('What is your matrix domain?\n');
+// clear();
+// const userName = readline.question('What is your matrix name?\n');
+// clear();
+// const password = readline.question('What is your password?\n', {hideEchoBack: true});
+// clear();
+
+// const service = new Service({userName, domain, password});
+const service = new Service(options);
+const run = async () => {
     const monthsLimit = readline.questionInt(
         chalk.cyan('How many months ago from last activity in a room we should kick you? 6 months by default\n'),
         {defaultInput: defaultMonthsLimit, limit: isLimit, limitMessage: 'Input correct, please'}
@@ -26,13 +35,16 @@ const run = async (client) => {
         // eslint-disable-next-line
         chalk.cyan('Input name of users which activities in rooms we ignore (comma or space separated). No users by default\n'),
     );
-    const ignoreUsers = inputUsers && inputUsers.split(/[ ,]+/);
+    const ignoreUsers = getIgnoreUsers(inputUsers);
+    const rooms = await service.getRooms(monthsLimit, ignoreUsers);
 
-    const rooms = await getRooms(client, monthsLimit, ignoreUsers);
-
-    const inoreUserMsg = ignoreUsers ? `of users (${ignoreUsers}) ` : '';
+    if (!rooms.length) {
+        log(chalk.yellow('You don\'t have any room to leave'));
+        return;
+    }
+    const ignoreUserMsg = ignoreUsers ? `of users (${ignoreUsers}) ` : '';
     const infoRoomMsg =
-        `\nWe found ${rooms.length} rooms where last activity ${inoreUserMsg}was ${monthsLimit} months ago\n`;
+        `\nWe found ${rooms.length} rooms where last activity ${ignoreUserMsg}was ${monthsLimit} months ago\n`;
     log(chalk.green(infoRoomMsg));
 
     const isShowName = readline.keyInYN(chalk.cyan('Do you want to see them?'));
@@ -47,7 +59,7 @@ const run = async (client) => {
 
     const isStart = readline.keyInYN(chalk.cyan('\nLeave them all?'));
     if (isStart) {
-        const roomsYouLeave = await leaveRooms(client, rooms);
+        const roomsYouLeave = await service.leaveRooms(rooms);
 
         clear();
         const errorRooms = roomsYouLeave
@@ -75,18 +87,21 @@ const run = async (client) => {
     }
 };
 
-getClient(domain, userName, password)
+
+service.getClient()
     .then(async (client) => {
         try {
             await run(client);
         } catch (error) {
             console.error(error);
         } finally {
-            client.stopClient();
+            service.stop();
             log(chalk.green('\nAll work completed!!!'));
             process.exit();
         }
     })
     .catch(() => {
+        service.stop();
         log(chalk.yellow('Something wrong, please try again'));
+        process.exit();
     });

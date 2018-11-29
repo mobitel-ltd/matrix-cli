@@ -1,6 +1,7 @@
-const {getLastRealSenderEvent} = require('../src/lib/utils');
+const fake = require('faker');
+const {getIgnoreUsers, getLastRealSenderEvent, isLimit} = require('../src/utils');
 
-describe('Utils test', () => {
+describe.only('Utils test', () => {
     it('getLastRealSenderEvent', () => {
         const usersArr = ['abc', 'def', 'ghj'];
         const events = [
@@ -44,4 +45,18 @@ describe('Utils test', () => {
         const res = getLastRealSenderEvent(events, null);
         expect(res.expected).toBeTruthy;
     });
+
+    it.only('isLimit works with string', () => {
+        const elem = '13';
+        const res = isLimit(elem);
+        expect(res).toBeFalsy();
+    });
+
+    for (let index = 0; index < 20; index++) {
+        it('expect getIgnoreUsers work correct', () => {
+            const input = fake.random.arrayElement(['', undefined, null, NaN, ' ', '        ']);
+            const res = getIgnoreUsers(input);
+            expect(res).toEqual([]);
+        });
+    }
 });

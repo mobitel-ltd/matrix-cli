@@ -6,6 +6,11 @@ const matrixHost = 'matrix';
 
 const getMatrixHostName = domain => [matrixHost, domain].join('.');
 
+const getIgnoreUsers = (input) => {
+    const str = input && input.trim();
+    return str && str !== '' && str.split(/[ ,]+/) || [];
+};
+
 const isLimit = str => +str > 1 && +str < 13;
 
 const getLastRealSenderEvent = (events, ignoreUsers) =>
@@ -29,9 +34,10 @@ const getOutdatedRooms = limit => ({timestamp}) => (timestamp < getLimitTimestam
 
 const getRoomsLastUpdate = (rooms, limit, ignoreUsers) =>
     rooms
-        .map(parseRoom(ignoreUsers || []))
+        .map(parseRoom(ignoreUsers))
         .filter(Boolean)
-        .filter(getOutdatedRooms(limit));
+        .filter(getOutdatedRooms(limit))
+        .sort((el1, el2) => el2.timestamp - el1.timestamp);
 
 const getBaseUrl = domain => url.format({protocol, hostname: getMatrixHostName(domain)});
 const getUserId = (userName, domain) => `@${userName}:${getMatrixHostName(domain)}`;
@@ -43,4 +49,5 @@ module.exports = {
     isLimit,
     getLimitTimestamp,
     getRoomsLastUpdate,
+    getIgnoreUsers,
 };
