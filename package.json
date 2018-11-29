@@ -26,13 +26,14 @@
   },
   "homepage": "https://github.com/grigori-gru/matrix-leave-outdated#readme",
   "dependencies": {
-    "sinon": "latest",
     "chalk": "^2.4.1",
+    "enquirer": "^2.1.1",
     "listr": "^0.14.3",
     "matrix-js-sdk": "0.14.1",
     "moment": "^2.22.2",
     "ora": "^3.0.0",
-    "readline-sync": "^1.4.9"
+    "readline-sync": "^1.4.9",
+    "sinon": "latest"
   },
   "devDependencies": {
     "delay": "^4.1.0",
