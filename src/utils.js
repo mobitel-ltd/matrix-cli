@@ -6,13 +6,6 @@ const matrixHost = 'matrix';
 
 const getMatrixHostName = domain => [matrixHost, domain].join('.');
 
-const getIgnoreUsers = (input) => {
-    const str = input && input.trim();
-    return str && str !== '' && str.split(/[ ,]+/) || [];
-};
-
-const isLimit = str => +str > 1 && +str < 13;
-
 const getLastRealSenderEvent = (events, ignoreUsers) =>
     events.reverse().find(ev =>
         !(ignoreUsers || []).some(user => ev.getSender().includes(user)));
@@ -46,8 +39,6 @@ module.exports = {
     getBaseUrl,
     getUserId,
     getLastRealSenderEvent,
-    isLimit,
     getLimitTimestamp,
     getRoomsLastUpdate,
-    getIgnoreUsers,
 };

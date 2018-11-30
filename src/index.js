@@ -42,7 +42,6 @@ module.exports = class {
                     const baseUrl = getBaseUrl(this.domain);
                     const userId = getUserId(this.userName, this.domain);
                     const client = this.sdk.createClient(baseUrl);
-
                     const {access_token: accessToken} = await client.loginWithPassword(userId, this.password);
                     const matrixClient = this.sdk.createClient({baseUrl, accessToken, userId});
                     ctx.matrixClient = matrixClient;
@@ -70,7 +69,6 @@ module.exports = class {
      */
     async getRooms(limit, users = []) {
         const ignoreUsers = typeof users === 'string' ? [users] : users;
-        console.log(ignoreUsers);
         const matrixClient = this.client || await this.getClient();
         const rooms = await matrixClient.getRooms();
         return getRoomsLastUpdate(rooms, limit, ignoreUsers);
@@ -84,7 +82,6 @@ module.exports = class {
         const client = this.client || await this.getClient();
         // TEST ONLY
         // const [expectedRoom] = rooms;
-        // const preparedTasks = [expectedRoom].map(_getTask(matrixClient));
         try {
             const preparedTasks = rooms.map(({roomId, roomName}) => {
                 const title = `Leaving room ${roomName}`;
@@ -100,6 +97,49 @@ module.exports = class {
         }
     }
 
+    /**
+     * Get all rooms
+     */
+    async getVisibleRooms() {
+        const client = this.client || await this.getClient();
+        const rooms = await client.getVisibleRooms();
+        return rooms.map(({roomId, name: roomName}) => ({roomId, roomName}));
+    }
+
+    /**
+     *
+     * @param {array} rooms matrix rooms of user
+     * @param {string} userId matrix userId
+     */
+    async inviteUserToRooms(rooms, userId) {
+        const client = this.client || await this.getClient();
+        // TEST ONLY
+        const [expectedRoom] = rooms;
+        try {
+            const preparedTasks = [expectedRoom].map(({roomId, roomName}) => {
+                // const preparedTasks = rooms.map(({roomId, roomName}) => {
+                const title = `Inviting user ${userId} to room ${roomName}`;
+                const task = () => client.invite(roomId, userId);
+
+                return {title, task};
+            });
+            const tasks = new Listr(preparedTasks, {concurrent: true, exitOnError: false});
+
+            await tasks.run();
+        } catch (err) {
+            return err.errors;
+        }
+    }
+
+    /**
+     * @param {string} name name matrix user
+     */
+    async getUser(name) {
+        const client = this.client || await this.getClient();
+        const userId = getUserId(name, this.domain);
+
+        return await client.getUser(userId) && userId;
+    }
     /**
      * Stop service
      */

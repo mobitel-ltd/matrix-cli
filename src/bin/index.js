@@ -1,88 +1,74 @@
 #!/usr/bin/env node
 
-const {getOptions, getLimitMonths, getInputUsers} = require('./questions');
-const {prompt, List} = require('enquirer');
-
-const Service = require('../');
-const {isLimit, getIgnoreUsers} = require('../utils');
+const ask = require('./questions');
 const chalk = require('chalk');
+// TEST ONLY!!!
+// const fakeSdk = require('../../__tests__/fixtures/fake-sdk');
+// require('dotenv').config();
 
-const {log, clear} = console;
-const defaultMonthsLimit = 6;
+// const options = {
+//     domain: process.env.TEST_DOMAIN,
+//     userName: process.env.TEST_USERNAME,
+//     password: process.env.TEST_PASSWORD,
+//     // sdk: fakeSdk,
+// };
 
+const logger = require('../logger');
+const {printRoomDate, printRoom} = require('./info')(logger);
+const Service = require('../');
+
+const DEFAULT_LIMIT = 6;
 let service;
+
 const run = async () => {
-    const options = await getOptions();
+    logger.clear();
+    const options = await ask.options();
+
     service = new Service(options);
-    const client = await service.getClient();
+    await service.getClient();
 
-    const monthsLimit = await getLimitMonths();
-    const inputUsers = await getInputUsers();
+    const limit = await ask.limitMonths(DEFAULT_LIMIT);
+    const ignoreUsers = await ask.inputUsers();
 
-    const rooms = await service.getRooms(monthsLimit, ignoreUsers);
+    const rooms = await service.getRooms(limit, ignoreUsers);
 
     if (!rooms.length) {
-        log(chalk.yellow('You don\'t have any room to leave'));
+        logger.log(chalk.yellow('You don\'t have any room to leave'));
         return;
     }
 
-    const ignoreUserMsg = ignoreUsers ? `of users (${ignoreUsers}) ` : '';
-    const infoRoomMsg = `\nWe found ${rooms.length} rooms where last activity ${ignoreUserMsg}was ${monthsLimit} months ago\n`;
-    log(chalk.green(infoRoomMsg));
+    const ignoreMsg = ignoreUsers.length ? `of users (${ignoreUsers.join(', ')}) ` : '';
+    const infoRoomMsg = `\nWe found ${rooms.length} rooms where last activity ${ignoreMsg}was ${limit} months ago\n`;
+    logger.log(chalk.green(infoRoomMsg));
 
+    await ask.isShowRooms() && rooms.map(printRoomDate);
 
-};
-
-
-const run = async () => {
-
-
-    const isShowName = readline.keyInYN(chalk.cyan('Do you want to see them?'));
-
-    if (isShowName) {
-        rooms.map(({roomName, date}) => {
-            log('\t-----------------------------------------------------');
-            log(chalk.blue('room name              '), chalk.yellow(roomName));
-            log(chalk.blue('date of last activity  '), chalk.yellow(date));
-        });
+    if (await ask.isLeave()) {
+        logger.clear();
+        const unleavedRooms = await service.leaveRooms(rooms);
+        unleavedRooms && await ask.isShowErrors() && logger.error(unleavedRooms);
     }
 
-    const isStart = readline.keyInYN(chalk.cyan('\nLeave them all?'));
-    if (isStart) {
-        const roomsYouLeave = await service.leaveRooms(rooms);
+    if (await ask.isShowVisibles()) {
+        logger.clear();
+        const visibleRooms = await service.getVisibleRooms();
+        visibleRooms.map(printRoom);
+        const userId = await ask.userToInvite(service);
 
-        clear();
-        const errorRooms = roomsYouLeave
-            .map((data) => {
-                log('\t--------------------------------------------');
-                log(chalk.blue('room name              '), chalk.cyan(data.name));
-                if (data.error) {
-                    log(chalk.blue('result                 '), chalk.red('Some error when leaving'));
-                    return data;
-                }
-                log(chalk.blue('result                 '), chalk.green('Room successfully leaved'));
-                return;
-            })
-            .filter(Boolean);
-        log('\t--------------------------------------------');
-
-        if (errorRooms.length) {
-            const isPrintErrors = readline.keyInYN('You have some errors while leaving rooms, to print errors put "y"');
-            if (isPrintErrors) {
-                errorRooms.map((data) => {
-                    log(data);
-                });
-            }
+        if (userId && await ask.isInvite()) {
+            const unInviteRooms = await service.inviteUserToRooms(rooms, userId);
+            unInviteRooms && await ask.isShowErrors() && logger.error(unInviteRooms);
         }
     }
 };
 
-try {
-    run();
-    log(chalk.green('\nAll work completed!!!'));
-} catch (error) {
-    log(chalk.yellow('Something wrong, please try again'));
-} finally {
-    service.stop();
-    process.exit();
-}
+run()
+    .then(() => logger.log(chalk.green('\nAll work completed!!!')))
+    .catch((err) => {
+        logger.log(chalk.yellow('Something wrong, please try again'));
+        logger.error(err);
+    })
+    .finally(() => {
+        service && service.stop();
+        process.exit();
+    });

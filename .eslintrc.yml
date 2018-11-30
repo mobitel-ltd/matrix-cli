@@ -14,6 +14,9 @@ env:
 rules:
   max-len: ["error", 120]
   indent: ["error", 4]
-  no-console: 0
   arrow-parens: [2, "as-needed", { "requireForBlockBody": true }]
+  no-use-before-define: "error"
+  overrides: [
+    files: ["src/bin/*"]
+  ]
 

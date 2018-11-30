@@ -6,6 +6,9 @@
   "bin": {
     "leave": "./src/bin/index.js"
   },
+  "jest": {
+    "testPathIgnorePatterns": ["fixtures"]
+  },
   "scripts": {
     "test": "jest"
   },
