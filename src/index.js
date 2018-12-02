@@ -114,10 +114,10 @@ module.exports = class {
     async inviteUserToRooms(rooms, userId) {
         const client = this.client || await this.getClient();
         // TEST ONLY
-        const [expectedRoom] = rooms;
+        // const [expectedRoom] = rooms;
+        // const preparedTasks = [expectedRoom].map(({roomId, roomName}) => {
         try {
-            const preparedTasks = [expectedRoom].map(({roomId, roomName}) => {
-                // const preparedTasks = rooms.map(({roomId, roomName}) => {
+            const preparedTasks = rooms.map(({roomId, roomName}) => {
                 const title = `Inviting user ${userId} to room ${roomName}`;
                 const task = () => client.invite(roomId, userId);
 
@@ -138,8 +138,17 @@ module.exports = class {
         const client = this.client || await this.getClient();
         const userId = getUserId(name, this.domain);
 
-        return await client.getUser(userId) && userId;
+        return userId && client.getUser(userId);
     }
+
+    /**
+     */
+    async getknownUsers() {
+        const client = this.client || await this.getClient();
+
+        return client.getUsers();
+    }
+
     /**
      * Stop service
      */

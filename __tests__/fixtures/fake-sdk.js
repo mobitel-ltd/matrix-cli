@@ -1,9 +1,11 @@
 const moment = require('moment');
+const Chance = require('chance');
 const fake = require('faker');
 const EventEmitter = require('events');
 const delay = require('delay');
 const {stub} = require('sinon');
 
+const chance = new Chance();
 const accessToken = 'accessToken';
 
 const matrixClientStub = new EventEmitter();
@@ -54,8 +56,12 @@ matrixClientStub.invite = async () => {
     // throw new Error();
     return inviteStub;
 };
-matrixClientStub.getUser = stub().resolves('@user:matrix.bingo-boom.ru');
+matrixClientStub.getUser = stub().resolves('@user:matrix.example.com');
 matrixClientStub.stopClient = stub();
+const getFakeUser = () => chance.word({length: 2}) + '_' + fake.name.findName();
+const users = Array.from({length: 30}, getFakeUser);
+
+matrixClientStub.getUsers = stub().resolves(users);
 
 const sdkStub = {
     createClient: (opts) => {

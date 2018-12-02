@@ -1,5 +1,8 @@
-const {prompt, List, BooleanPrompt} = require('enquirer');
+const {prompt, List, BooleanPrompt, AutoComplete, MultiSelect} = require('enquirer');
 const chalk = require('chalk');
+
+const enable = (choices, fn) => choices.forEach(ch => (ch.enabled = fn(ch)));
+
 
 const options = () => prompt([
     {
@@ -59,20 +62,57 @@ const isShowVisibles =
     boolPrompt('Do you want to invite anybody to your known rooms? You will see list of available rooms');
 const isInvite = boolPrompt('Do you really want to invite to ALL your rooms???');
 
-const userToInvite = async (service) => {
-    const result = await prompt({
-        type: 'input',
-        name: 'name',
-        message: chalk.blueBright('Input user to invite'),
-        async validate(name) {
-            const user = await service.getUser(name);
-            return !!(user);
+const userToInvite = async (users) => {
+    const prompt = new AutoComplete({
+        name: 'userId',
+        message: 'Select user to invite',
+        limit: 5,
+        choices: users,
+    });
+
+    return prompt.run();
+};
+
+const selectRoomsToInvite = async (rooms) => {
+    const preparedRooms = rooms.map(({roomName}) => ({name: roomName, message: roomName}));
+    const prompt = new MultiSelect({
+        name: 'rooms',
+        message: 'Do you want to invite anybody to your known rooms? You will see list of available rooms',
+        choices: [
+            {name: 'all',
+                message: chalk.italic('All'),
+                onChoice(state, choice, i) {
+                    if (state.index === i && choice.enabled) {
+                        enable(state.choices, ch => ch.name !== 'none');
+                    }
+                },
+            },
+            {name: 'none',
+                message: chalk.italic('None'),
+                onChoice(state, choice, i) {
+                    if (state.index === i) {
+                        if (choice.enabled) {
+                            enable(state.choices, ch => ch.name === 'none');
+                        }
+                    }
+                    if (state.keypress && state.keypress.name === 'a') choice.enabled = false;
+                    if (state.index !== i && state.choices[state.index].enabled === true) {
+                        choice.enabled = false;
+                    }
+                },
+            },
+            {role: 'separator'},
+            ...preparedRooms,
+        ],
+        indicator(state, choice) {
+            const style = choice.enabled ? chalk.cyan : chalk.gray;
+            return style(state.symbols.indicator);
         },
     });
 
-    const userId = await service.getUser(result.name);
+    const selectedRooms = await prompt.run();
 
-    return userId;
+    return rooms.filter(({roomName}) => selectedRooms.includes(roomName));
 };
 
 module.exports = {
@@ -85,4 +125,5 @@ module.exports = {
     isShowVisibles,
     isInvite,
     userToInvite,
+    selectRoomsToInvite,
 };

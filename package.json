@@ -7,7 +7,9 @@
     "leave": "./src/bin/index.js"
   },
   "jest": {
-    "testPathIgnorePatterns": ["fixtures"]
+    "testPathIgnorePatterns": [
+      "fixtures"
+    ]
   },
   "scripts": {
     "test": "jest"
@@ -39,6 +41,7 @@
     "sinon": "latest"
   },
   "devDependencies": {
+    "chance": "^1.0.17",
     "delay": "^4.1.0",
     "dotenv": "^6.1.0",
     "eslint": "^5.9.0",

@@ -3,8 +3,8 @@
 const ask = require('./questions');
 const chalk = require('chalk');
 // TEST ONLY!!!
-// const fakeSdk = require('../../__tests__/fixtures/fake-sdk');
-// require('dotenv').config();
+const fakeSdk = require('../../__tests__/fixtures/fake-sdk');
+require('dotenv').config();
 
 // const options = {
 //     domain: process.env.TEST_DOMAIN,
@@ -13,8 +13,8 @@ const chalk = require('chalk');
 //     // sdk: fakeSdk,
 // };
 
-const logger = require('../logger');
-const {printRoomDate, printRoom} = require('./info')(logger);
+const logger = require('./logger');
+const {printRoomDate} = require('./info')(logger);
 const Service = require('../');
 
 const DEFAULT_LIMIT = 6;
@@ -24,7 +24,7 @@ const run = async () => {
     logger.clear();
     const options = await ask.options();
 
-    service = new Service(options);
+    service = new Service({options, sdk: fakeSdk});
     await service.getClient();
 
     const limit = await ask.limitMonths(DEFAULT_LIMIT);
@@ -52,11 +52,13 @@ const run = async () => {
     if (await ask.isShowVisibles()) {
         logger.clear();
         const visibleRooms = await service.getVisibleRooms();
-        visibleRooms.map(printRoom);
-        const userId = await ask.userToInvite(service);
+        const inviteRooms = await ask.selectRoomsToInvite(visibleRooms);
+
+        const knownUsers = await service.getknownUsers();
+        const userId = await ask.userToInvite(knownUsers);
 
         if (userId && await ask.isInvite()) {
-            const unInviteRooms = await service.inviteUserToRooms(rooms, userId);
+            const unInviteRooms = await service.inviteUserToRooms(inviteRooms, userId);
             unInviteRooms && await ask.isShowErrors() && logger.error(unInviteRooms);
         }
     }
