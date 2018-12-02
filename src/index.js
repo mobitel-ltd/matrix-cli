@@ -1,5 +1,5 @@
 const matrixSdk = require('matrix-js-sdk');
-const {getBaseUrl, getUserId, getRoomsLastUpdate} = require('./utils');
+const {getBaseUrl, getUserId, getRoomsLastUpdate} = require('./lib/utils');
 const Listr = require('listr');
 
 const spinLoginText = 'login with password';

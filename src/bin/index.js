@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 
-const ask = require('./questions');
+const ask = require('../lib/questions');
 const chalk = require('chalk');
+const logger = require('../lib/logger');
+const Service = require('../');
+
 // TEST ONLY!!!
-const fakeSdk = require('../../__tests__/fixtures/fake-sdk');
-require('dotenv').config();
+// const fakeSdk = require('../../__tests__/fixtures/fake-sdk');
+// require('dotenv').config();
 
 // const options = {
 //     domain: process.env.TEST_DOMAIN,
@@ -13,9 +16,12 @@ require('dotenv').config();
 //     // sdk: fakeSdk,
 // };
 
-const logger = require('./logger');
-const {printRoomDate} = require('./info')(logger);
-const Service = require('../');
+
+const printRoomDate = ({roomName, date}) => {
+    logger.log('\t-----------------------------------------------------');
+    logger.log(chalk.blue('room name              '), chalk.yellow(roomName));
+    logger.log(chalk.blue('date of last activity  '), chalk.yellow(date));
+};
 
 const DEFAULT_LIMIT = 6;
 let service;
@@ -24,7 +30,7 @@ const run = async () => {
     logger.clear();
     const options = await ask.options();
 
-    service = new Service({options, sdk: fakeSdk});
+    service = new Service(options);
     await service.getClient();
 
     const limit = await ask.limitMonths(DEFAULT_LIMIT);
