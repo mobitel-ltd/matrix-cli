@@ -1,6 +1,7 @@
 const matrixSdk = require('matrix-js-sdk');
 const {getBaseUrl, getUserId, getRoomsLastUpdate} = require('./lib/utils');
 const Listr = require('listr');
+const chalk = require('chalk');
 
 const spinLoginText = 'login with password';
 const spinSyncText = 'wait for sync with matrix server\n';
@@ -118,7 +119,7 @@ module.exports = class {
         // const preparedTasks = [expectedRoom].map(({roomId, roomName}) => {
         try {
             const preparedTasks = rooms.map(({roomId, roomName}) => {
-                const title = `Inviting user ${userId} to room ${roomName}`;
+                const title = `Inviting user ${chalk.cyan(userId)} to room ${chalk.cyan(roomName)}`;
                 const task = () => client.invite(roomId, userId);
 
                 return {title, task};
@@ -145,7 +146,6 @@ module.exports = class {
      */
     async getknownUsers() {
         const client = this.client || await this.getClient();
-
         return client.getUsers();
     }
 

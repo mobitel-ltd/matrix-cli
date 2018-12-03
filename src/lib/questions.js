@@ -1,4 +1,4 @@
-const {prompt, List, BooleanPrompt, AutoComplete, MultiSelect} = require('enquirer');
+const {prompt, List, BooleanPrompt, AutoComplete, MultiSelect, Select} = require('enquirer');
 const chalk = require('chalk');
 
 const enable = (choices, fn) => choices.forEach(ch => (ch.enabled = fn(ch)));
@@ -60,14 +60,15 @@ const isLeave = boolPrompt('Do you really want to leave???');
 const isShowErrors = boolPrompt('Show all errors?');
 const isShowVisibles =
     boolPrompt('Do you want to invite anybody to your known rooms? You will see list of available rooms');
-const isInvite = boolPrompt('Do you really want to invite to ALL your rooms???');
+const isInvite = boolPrompt('Do you really want to invite to ALL selected rooms???');
 
 const userToInvite = async (users) => {
+    const preparedUsers = users.map(({userId, displayName}) => ({name: userId, message: displayName}));
     const prompt = new AutoComplete({
         name: 'userId',
-        message: 'Select user to invite',
+        message: chalk.blueBright('Select user to invite'),
         limit: 5,
-        choices: users,
+        choices: preparedUsers,
     });
 
     return prompt.run();
@@ -77,7 +78,9 @@ const selectRoomsToInvite = async (rooms) => {
     const preparedRooms = rooms.map(({roomName}) => ({name: roomName, message: roomName}));
     const prompt = new MultiSelect({
         name: 'rooms',
-        message: 'Do you want to invite anybody to your known rooms? You will see list of available rooms',
+        message: chalk.blueBright('Do you want to invite anybody to your known rooms?'),
+        hint: chalk.blueBright('(Use <space> to select, <return> to submit)'),
+        sort: true,
         choices: [
             {name: 'all',
                 message: chalk.italic('All'),
@@ -115,6 +118,16 @@ const selectRoomsToInvite = async (rooms) => {
     return rooms.filter(({roomName}) => selectedRooms.includes(roomName));
 };
 
+const selectAction = () => {
+    const prompt = new Select({
+        name: 'action',
+        message: chalk.cyan('Select action'),
+        choices: ['leave', 'invite', 'stop'],
+    });
+
+    return prompt.run();
+};
+
 module.exports = {
     isShowErrors,
     isLeave,
@@ -126,4 +139,5 @@ module.exports = {
     isInvite,
     userToInvite,
     selectRoomsToInvite,
+    selectAction,
 };

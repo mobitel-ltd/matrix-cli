@@ -58,7 +58,21 @@ matrixClientStub.invite = async () => {
 };
 matrixClientStub.getUser = stub().resolves('@user:matrix.example.com');
 matrixClientStub.stopClient = stub();
-const getFakeUser = () => chance.word({length: 2}) + '_' + fake.name.findName();
+const getFakeUser = () => ({
+    userId: chance.word({length: 2}) + '_' + fake.name.firstName(),
+    presence: fake.random.arrayElement(['offline', 'online']),
+    presenceStatusMsg: null,
+    displayName: fake.name.findName(),
+    rawDisplayName: fake.name.findName(),
+    avatarUrl: null,
+    lastActiveAgo: 0,
+    lastPresenceTs: 0,
+    currentlyActive: false,
+    events: {presence: null, profile: null},
+    _modified: 1543825574680,
+});
+
+
 const users = Array.from({length: 30}, getFakeUser);
 
 matrixClientStub.getUsers = stub().resolves(users);

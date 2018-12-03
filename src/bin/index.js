@@ -7,13 +7,13 @@ const Service = require('../');
 
 // TEST ONLY!!!
 // const fakeSdk = require('../../__tests__/fixtures/fake-sdk');
-// require('dotenv').config();
+require('dotenv').config();
 
 // const options = {
 //     domain: process.env.TEST_DOMAIN,
 //     userName: process.env.TEST_USERNAME,
 //     password: process.env.TEST_PASSWORD,
-//     // sdk: fakeSdk,
+// //     sdk: fakeSdk,
 // };
 
 
@@ -59,6 +59,9 @@ const run = async () => {
         logger.clear();
         const visibleRooms = await service.getVisibleRooms();
         const inviteRooms = await ask.selectRoomsToInvite(visibleRooms);
+        if (inviteRooms.length === 0) {
+            return;
+        }
 
         const knownUsers = await service.getknownUsers();
         const userId = await ask.userToInvite(knownUsers);
