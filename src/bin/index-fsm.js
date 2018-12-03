@@ -1,5 +1,6 @@
 const chalk = require('chalk');
-const StateMachine = require('fsm-as-promised');
+const {Machine: machine} = require('xstate');
+const {interpret} = require('xstate/lib/interpreter');
 const ask = require('../lib/questions');
 const logger = require('../lib/logger');
 const Service = require('../');
@@ -13,36 +14,41 @@ const printRoomDate = ({roomName, date}) => {
 };
 
 const DEFAULT_LIMIT = 6;
-let service;
 
-const fsm = new StateMachine({
+const fsm = machine({
     initial: 'begin',
-    final: 'end',
-    events: [
-        {name: 'start', from: 'begin', to: 'actions'},
-        {name: 'leave', from: 'actions', to: 'startleave'},
-        {name: 'stop', from: 'actions', to: 'end'},
-        {name: 'invite', from: 'actions', to: 'startinvite'},
-        {name: 'actionsAgain', from: ['leave', 'invite'], to: 'actions'},
-    ],
-    callbacks: {
-        onenterend: () => logger.log(chalk.green('\nAll work completed!!!')),
-        onstart: async (state) => {
+    context: {
+        service: null,
+    },
+    states: {
+        begin: {
+            onEntry: 'startMatrixClient',
+            onDone: {
+                target: 'select',
+            },
+        },
+        select: {
+            onEntry: 'selectAction',
+        },
+        end: {
+            type: 'final',
+        },
+    },
+}, {
+    actions: {
+        selectAction: async () => {
+            const action = await ask.selectAction();
+        },
+        startMatrixClient: async (ctx) => {
             const options = await ask.options();
-
             const service = new Service({...options, sdk: fakeSdk});
             await service.getClient();
-            state.service = service;
+            ctx.service = service;
         },
-        onenteredactions: async (state) => {
-            const action = await ask.selectAction();
-            return fsm[action]();
-        },
-        onenterstartleave: async (state) => {
+        leave: async (ctx) => {
             const limit = await ask.limitMonths(DEFAULT_LIMIT);
             const ignoreUsers = await ask.inputUsers();
-            console.log(state);
-            const rooms = await state.service.getRooms(limit, ignoreUsers);
+            const rooms = await ctx.service.getRooms(limit, ignoreUsers);
 
             if (!rooms.length) {
                 logger.log(chalk.yellow('You don\'t have any room to leave'));
@@ -58,15 +64,14 @@ const fsm = new StateMachine({
 
             if (await ask.isLeave()) {
                 logger.clear();
-                const unleavedRooms = await state.service.leaveRooms(rooms);
+                const unleavedRooms = await ctx.service.leaveRooms(rooms);
                 unleavedRooms && await ask.isShowErrors() && logger.error(unleavedRooms);
             }
-
-            return fsm.actionsAgain();
+            return fsm.actionsAgain(ctx.service);
         },
-        onenterstartinvite: async (state) => {
+        invite: async (ctx) => {
             logger.clear();
-            const visibleRooms = await state.service.getVisibleRooms();
+            const visibleRooms = await ctx.service.getVisibleRooms();
             const inviteRooms = await ask.selectRoomsToInvite(visibleRooms);
             if (inviteRooms.length === 0) {
                 logger.log(chalk.yellow('You don\'t have any room to invite'));
@@ -74,27 +79,27 @@ const fsm = new StateMachine({
                 return fsm.actionsAgain();
             }
 
-            const knownUsers = await state.service.getknownUsers();
+            const knownUsers = await ctx.service.getknownUsers();
             const userId = await ask.userToInvite(knownUsers);
 
             if (userId && await ask.isInvite()) {
-                const unInviteRooms = await state.service.inviteUserToRooms(inviteRooms, userId);
+                const unInviteRooms = await ctx.service.inviteUserToRooms(inviteRooms, userId);
                 unInviteRooms && await ask.isShowErrors() && logger.error(unInviteRooms);
             }
 
             return fsm.actionsAgain();
         },
     },
-}, {service});
+});
 
-// logger.log(fsm.current);
-fsm.start()
-    // .then(() => fsm.select)
-    .catch((err) => {
-        logger.log(chalk.yellow('Something wrong, please try again'));
-        logger.error(err);
-    })
-    .finally(() => {
-        service && service.stop();
-        process.exit();
-    });
+const service = interpret(fsm);
+service.start();
+// .then(() => logger.log(chalk.green('\nAll work completed!!!')))
+// .catch((err) => {
+//     logger.warn('Something wrong, please try again');
+//     logger.error(err);
+// })
+// .finally(() => {
+//     service && service.stop();
+//     process.exit();
+// });

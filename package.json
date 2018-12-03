@@ -33,12 +33,9 @@
   "dependencies": {
     "chalk": "^2.4.1",
     "enquirer": "^2.1.1",
-    "fsm-as-promised": "^0.16.0",
     "listr": "^0.14.3",
     "matrix-js-sdk": "0.14.1",
     "moment": "^2.22.2",
-    "ora": "^3.0.0",
-    "readline-sync": "^1.4.9",
     "sinon": "latest",
     "xstate": "^4.1.2"
   },
