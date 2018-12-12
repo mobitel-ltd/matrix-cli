@@ -1,8 +1,8 @@
 const {prompt, List, BooleanPrompt, AutoComplete, MultiSelect, Select} = require('enquirer');
 const chalk = require('chalk');
+const utils = require('./utils');
 
 const enable = (choices, fn) => choices.forEach(ch => (ch.enabled = fn(ch)));
-
 
 const options = () => prompt([
     {
@@ -122,7 +122,7 @@ const selectAction = () => {
     const prompt = new Select({
         name: 'action',
         message: chalk.cyan('Select action'),
-        choices: ['leave', 'invite', 'stop'],
+        choices: [utils.getLeaveAction(), utils.getInviteAction(), utils.getStopAction()],
     });
 
     return prompt.run();

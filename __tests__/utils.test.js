@@ -1,6 +1,6 @@
-const {getLastRealSenderEvent} = require('../src/utils');
+const {getLastRealSenderEvent} = require('../src/lib/utils');
 
-describe.only('Utils test', () => {
+describe('Utils test', () => {
     it('getLastRealSenderEvent', () => {
         const usersArr = ['abc', 'def', 'ghj'];
         const events = [

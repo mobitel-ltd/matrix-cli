@@ -1,2 +1,2 @@
-# matrix-leave-outdated
-Console util to leave all old matrix rooms by date
+# matrix-cli
+Console util to work with [Matrix](https://matrix.org/blog/home/)

@@ -1,10 +1,10 @@
 const moment = require('moment');
 const fake = require('faker');
 // const delay = require('delay');
-const Service = require('../src');
+const Service = require('../src/lib/matrix-service');
 const {stub} = require('sinon');
 const EventEmitter = require('events');
-const {getBaseUrl, getUserId} = require('../src/utils');
+const {getBaseUrl, getUserId} = require('../src/lib/utils');
 
 const startDate = '2017-01-01';
 const ignoreUserName = 'some_user';
@@ -25,7 +25,7 @@ const getRoom = period => () => ({
 
 const createRooms = (length, period) => Array.from({length}, getRoom(period));
 
-describe.only('test leave', () => {
+describe('test leave', () => {
     const accessToken = 'accessToken';
     const domain = 'domain';
     const password = 'password';
