@@ -6,3 +6,6 @@ dev:
 
 start:
 	node src/bin/index.js
+
+publish:
+	npm publish

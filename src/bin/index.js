@@ -32,6 +32,8 @@ const run = async () => {
     } catch (err) {
         logger.log(chalk.yellow('Something wrong, please try again'));
         logger.error(err);
+    } finally {
+        process.exit();
     }
 };
 

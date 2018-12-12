@@ -1,10 +1,10 @@
 {
-  "name": "matrix-cli",
-  "version": "1.0.1",
+  "name": "matrix-mobitel-cli",
+  "version": "1.0.2",
   "description": "Console util to leave all old matrix rooms by date",
   "main": "index.js",
   "bin": {
-    "start": "./src/bin/index.js"
+    "matrix-cli": "./src/bin/index.js"
   },
   "jest": {
     "testPathIgnorePatterns": [
