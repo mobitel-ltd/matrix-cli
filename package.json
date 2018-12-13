@@ -1,6 +1,6 @@
 {
   "name": "matrix-mobitel-cli",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Console util to leave all old matrix rooms by date",
   "main": "index.js",
   "bin": {

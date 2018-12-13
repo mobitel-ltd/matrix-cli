@@ -18,7 +18,6 @@ const select = async (service, actions) => {
 
 const run = async () => {
     try {
-        logger.clear();
         const options = await ask.options();
 
         const service = new Service(options);
@@ -31,7 +30,6 @@ const run = async () => {
         logger.log(chalk.green('\nAll work completed!!!'));
     } catch (err) {
         logger.log(chalk.yellow('Something wrong, please try again'));
-        logger.error(err);
     } finally {
         process.exit();
     }

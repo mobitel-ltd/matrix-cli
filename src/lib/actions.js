@@ -50,7 +50,6 @@ module.exports = class {
         await this.ask.isShowRooms() && rooms.map(this._printRoomDate.bind(this));
 
         if (await this.ask.isLeave()) {
-            this.logger.clear();
             const unleavedRooms = await this.matrixService.leaveRooms(rooms);
             unleavedRooms && await this.ask.isShowErrors() && this.logger.error(unleavedRooms);
             return unleavedRooms;
