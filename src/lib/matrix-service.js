@@ -72,7 +72,14 @@ module.exports = class {
         const ignoreUsers = typeof users === 'string' ? [users] : users;
         const matrixClient = this.client || await this.getClient();
         const rooms = await matrixClient.getRooms();
-        return getRoomsLastUpdate(rooms, limit, ignoreUsers);
+        const isEnglish = val => /[\w]/.test(val);
+        const isChat = (room) => {
+            const allMembers = room.currentState.getMembers();
+            return allMembers.length <= 2 && !isEnglish(room.name);
+        };
+        const filteredRooms = rooms.filter(room => !isChat(room));
+
+        return getRoomsLastUpdate(filteredRooms, limit, ignoreUsers);
     }
 
 

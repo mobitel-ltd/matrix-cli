@@ -32,18 +32,18 @@
   },
   "homepage": "https://github.com/grigori-gru/matrix-leave-outdated#readme",
   "dependencies": {
-    "chalk": "^2.4.1",
-    "enquirer": "^2.1.1",
+    "chalk": "^2.4.2",
+    "enquirer": "^2.3.0",
     "listr": "^0.14.3",
-    "matrix-js-sdk": "0.14.1",
-    "moment": "^2.22.2"
+    "matrix-js-sdk": "mobitel-ltd/matrix-js-sdk",
+    "moment": "^2.23.0"
   },
   "devDependencies": {
     "sinon": "latest",
-    "chance": "^1.0.17",
+    "chance": "^1.0.18",
     "delay": "^4.1.0",
-    "dotenv": "^6.1.0",
-    "eslint": "^5.9.0",
+    "dotenv": "^6.2.0",
+    "eslint": "^5.12.0",
     "eslint-config-google": "^0.11.0",
     "faker": "^4.1.0",
     "jest": "^23.6.0"

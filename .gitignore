@@ -65,3 +65,6 @@ index.test.js
 
 ## dev
 *.dev*
+
+## vscode
+.vscode
