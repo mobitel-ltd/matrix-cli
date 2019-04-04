@@ -2,7 +2,6 @@ const utils = require('./utils');
 const chalk = require('chalk');
 const myLogger = require('./logger');
 
-
 const DEFAULT_LIMIT = 6;
 
 module.exports = class {
@@ -22,7 +21,7 @@ module.exports = class {
      *
      * @param {object} roomData rooms data
      */
-    _printRoomDate({roomName, date}) {
+    _printRoomDate({ roomName, date }) {
         this.logger.log('\t-----------------------------------------------------');
         this.logger.log(chalk.blue('room name              '), chalk.yellow(roomName));
         this.logger.log(chalk.blue('date of last activity  '), chalk.yellow(date));
@@ -38,20 +37,21 @@ module.exports = class {
         const rooms = await this.matrixService.getRooms(limit, ignoreUsers);
 
         if (!rooms.length) {
-            this.logger.log(chalk.yellow('You don\'t have any room to leave'));
+            this.logger.log(chalk.yellow("You don't have any room to leave"));
             return;
         }
 
         const ignoreMsg = ignoreUsers.length ? `of users (${ignoreUsers.join(', ')}) ` : '';
-        const infoRoomMsg =
-            `\nWe found ${rooms.length} rooms where last activity ${ignoreMsg}was ${limit} months ago\n`;
+        const infoRoomMsg = `\nWe found ${
+            rooms.length
+        } rooms where last activity ${ignoreMsg}was ${limit} months ago\n`;
         this.logger.log(chalk.green(infoRoomMsg));
 
-        await this.ask.isShowRooms() && rooms.map(this._printRoomDate.bind(this));
+        (await this.ask.isShowRooms()) && rooms.map(this._printRoomDate.bind(this));
 
         if (await this.ask.isLeave()) {
             const unleavedRooms = await this.matrixService.leaveRooms(rooms);
-            unleavedRooms && await this.ask.isShowErrors() && this.logger.error(unleavedRooms);
+            unleavedRooms && (await this.ask.isShowErrors()) && this.logger.error(unleavedRooms);
             return unleavedRooms;
         }
     }
@@ -69,9 +69,9 @@ module.exports = class {
         const knownUsers = await this.matrixService.getknownUsers();
         const userId = await this.ask.userToInvite(knownUsers);
 
-        if (userId && await this.ask.isInvite()) {
+        if (userId && (await this.ask.isInvite())) {
             const unInviteRooms = await this.matrixService.inviteUserToRooms(inviteRooms, userId);
-            unInviteRooms && await this.ask.isShowErrors() && this.logger.error(unInviteRooms);
+            unInviteRooms && (await this.ask.isShowErrors()) && this.logger.error(unInviteRooms);
         }
     }
 

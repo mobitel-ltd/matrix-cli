@@ -7,11 +7,10 @@ const LEAVE_ACTION = 'leave';
 const INVITE_ACTION = 'invite';
 const STOP_ACTION = 'stop';
 
-
 const utils = {
     getMatrixHostName: domain => [matrixHost, domain].join('.'),
 
-    parseRoom: ignoreUsers => ({roomId, name: roomName, timeline}) => {
+    parseRoom: ignoreUsers => ({ roomId, name: roomName, timeline }) => {
         const lastEvent = utils.getLastRealSenderEvent(timeline, ignoreUsers);
         if (!lastEvent) {
             return;
@@ -19,10 +18,10 @@ const utils = {
         const timestamp = lastEvent.getTs();
         const date = lastEvent.getDate();
 
-        return {roomName, roomId, timestamp, date};
+        return { roomName, roomId, timestamp, date };
     },
 
-    getOutdatedRooms: limit => ({timestamp}) => (timestamp < utils.getLimitTimestamp(limit)),
+    getOutdatedRooms: limit => ({ timestamp }) => timestamp < utils.getLimitTimestamp(limit),
 
     getLeaveAction: () => LEAVE_ACTION,
 
@@ -30,7 +29,7 @@ const utils = {
 
     getStopAction: () => STOP_ACTION,
 
-    getBaseUrl: domain => url.format({protocol, hostname: utils.getMatrixHostName(domain)}),
+    getBaseUrl: domain => url.format({ protocol, hostname: utils.getMatrixHostName(domain) }),
 
     getUserId: (userName, domain) => `@${userName}:${utils.getMatrixHostName(domain)}`,
 
@@ -42,10 +41,12 @@ const utils = {
             .sort((el1, el2) => el2.timestamp - el1.timestamp),
 
     getLastRealSenderEvent: (events, ignoreUsers) =>
-        events.reverse().find(ev =>
-            !(ignoreUsers || []).some(user => ev.getSender().includes(user))),
+        events.reverse().find(ev => !(ignoreUsers || []).some(user => ev.getSender().includes(user))),
 
-    getLimitTimestamp: limit => moment().subtract(limit, 'months').valueOf(),
+    getLimitTimestamp: limit =>
+        moment()
+            .subtract(limit, 'months')
+            .valueOf(),
 };
 
 module.exports = utils;

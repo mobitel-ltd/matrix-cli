@@ -1,5 +1,5 @@
 const matrixSdk = require('matrix-js-sdk');
-const {getBaseUrl, getUserId, getRoomsLastUpdate} = require('./utils');
+const { getBaseUrl, getUserId, getRoomsLastUpdate } = require('./utils');
 const Listr = require('listr');
 const chalk = require('chalk');
 
@@ -10,7 +10,7 @@ module.exports = class {
     /**
      * @param {object} sdk sdk client
      */
-    constructor({sdk, domain, userName, password}) {
+    constructor({ sdk, domain, userName, password }) {
         this.sdk = sdk || matrixSdk;
         this.userName = userName;
         this.domain = domain;
@@ -24,7 +24,7 @@ module.exports = class {
      */
     _getReadyClient(client) {
         return new Promise((resolve, reject) => {
-            client.on('sync', (state) => {
+            client.on('sync', state => {
                 if (state === 'SYNCING') {
                     resolve(client);
                 }
@@ -39,26 +39,32 @@ module.exports = class {
         const tasks = new Listr([
             {
                 title: spinLoginText,
-                task: async (ctx) => {
+                task: async ctx => {
                     const baseUrl = getBaseUrl(this.domain);
                     const userId = getUserId(this.userName, this.domain);
                     const client = this.sdk.createClient(baseUrl);
-                    const {access_token: accessToken} = await client.loginWithPassword(userId, this.password);
-                    const matrixClient = this.sdk.createClient({baseUrl, accessToken, userId});
+                    const { access_token: accessToken } = await client.loginWithPassword(userId, this.password);
+                    const matrixClient = this.sdk.createClient({
+                        baseUrl,
+                        accessToken,
+                        userId,
+                    });
                     ctx.matrixClient = matrixClient;
                 },
             },
             {
                 title: spinSyncText,
-                task: async (ctx) => {
-                    await ctx.matrixClient.startClient({lazyLoadMembers: true});
+                task: async ctx => {
+                    await ctx.matrixClient.startClient({
+                        lazyLoadMembers: true,
+                    });
                     const readyClient = await this._getReadyClient(ctx.matrixClient);
                     ctx.matrixClient = readyClient;
                 },
             },
         ]);
 
-        const {matrixClient} = await tasks.run();
+        const { matrixClient } = await tasks.run();
         this.client = matrixClient;
 
         return matrixClient;
@@ -70,10 +76,10 @@ module.exports = class {
      */
     async getRooms(limit, users = []) {
         const ignoreUsers = typeof users === 'string' ? [users] : users;
-        const matrixClient = this.client || await this.getClient();
+        const matrixClient = this.client || (await this.getClient());
         const rooms = await matrixClient.getRooms();
         const isEnglish = val => /[\w]/.test(val);
-        const isChat = (room) => {
+        const isChat = room => {
             const allMembers = room.currentState.getMembers();
             return allMembers.length <= 2 && !isEnglish(room.name);
         };
@@ -82,22 +88,26 @@ module.exports = class {
         return getRoomsLastUpdate(filteredRooms, limit, ignoreUsers);
     }
 
-
     /**
      * @param {array} rooms matrix rooms from getRooms
      */
     async leaveRooms(rooms = []) {
-        const client = this.client || await this.getClient();
+        const client = this.client || (await this.getClient());
         // TEST ONLY
         // const [expectedRoom] = rooms;
         try {
-            const preparedTasks = rooms.map(({roomId, roomName}) => {
+            const preparedTasks = rooms.map(({ roomId, roomName }) => {
                 const title = `Leaving room ${roomName}`;
                 const task = () => client.leave(roomId);
 
-                return {title, task};
+                return {
+                    title,
+                    task,
+                };
             });
-            const tasks = new Listr(preparedTasks, {concurrent: true, exitOnError: false});
+            const tasks = new Listr(preparedTasks, {
+                exitOnError: false,
+            });
 
             await tasks.run();
         } catch (err) {
@@ -109,9 +119,12 @@ module.exports = class {
      * Get all rooms
      */
     async getVisibleRooms() {
-        const client = this.client || await this.getClient();
+        const client = this.client || (await this.getClient());
         const rooms = await client.getVisibleRooms();
-        return rooms.map(({roomId, name: roomName}) => ({roomId, roomName}));
+        return rooms.map(({ roomId, name: roomName }) => ({
+            roomId,
+            roomName,
+        }));
     }
 
     /**
@@ -120,18 +133,24 @@ module.exports = class {
      * @param {string} userId matrix userId
      */
     async inviteUserToRooms(rooms, userId) {
-        const client = this.client || await this.getClient();
+        const client = this.client || (await this.getClient());
         // TEST ONLY
         // const [expectedRoom] = rooms;
         // const preparedTasks = [expectedRoom].map(({roomId, roomName}) => {
         try {
-            const preparedTasks = rooms.map(({roomId, roomName}) => {
+            const preparedTasks = rooms.map(({ roomId, roomName }) => {
                 const title = `Inviting user ${chalk.cyan(userId)} to room ${chalk.cyan(roomName)}`;
                 const task = () => client.invite(roomId, userId);
 
-                return {title, task};
+                return {
+                    title,
+                    task,
+                };
             });
-            const tasks = new Listr(preparedTasks, {concurrent: true, exitOnError: false});
+            const tasks = new Listr(preparedTasks, {
+                concurrent: true,
+                exitOnError: false,
+            });
 
             await tasks.run();
         } catch (err) {
@@ -143,7 +162,7 @@ module.exports = class {
      * @param {string} name name matrix user
      */
     async getUser(name) {
-        const client = this.client || await this.getClient();
+        const client = this.client || (await this.getClient());
         const userId = getUserId(name, this.domain);
 
         return userId && client.getUser(userId);
@@ -152,7 +171,7 @@ module.exports = class {
     /**
      */
     async getknownUsers() {
-        const client = this.client || await this.getClient();
+        const client = this.client || (await this.getClient());
         return client.getUsers();
     }
 
