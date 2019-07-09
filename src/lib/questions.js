@@ -1,4 +1,4 @@
-const { prompt, List, BooleanPrompt, AutoComplete, MultiSelect, Select } = require('enquirer');
+const { prompt, Input, List, BooleanPrompt, AutoComplete, MultiSelect, Select } = require('enquirer');
 const chalk = require('chalk');
 const utils = require('./utils');
 
@@ -61,6 +61,7 @@ const isShowVisibles = boolPrompt(
     'Do you want to invite anybody to your known rooms? You will see list of available rooms',
 );
 const isInvite = boolPrompt('Do you really want to invite to ALL selected rooms???');
+const isSend = async message => await boolPrompt(`Do you really want to send ${message} to ALL selected rooms???`)();
 
 const userToInvite = async users => {
     const preparedUsers = users.map(({ userId, displayName }) => ({ name: userId, message: displayName }));
@@ -120,11 +121,20 @@ const selectRoomsToInvite = async rooms => {
     return rooms.filter(({ roomName }) => selectedRooms.includes(roomName));
 };
 
+const inputMessage = () => {
+    const prompt = new Input({
+        message: 'Input message to send',
+        initial: 'message',
+    });
+
+    return prompt.run();
+};
+
 const selectAction = () => {
     const prompt = new Select({
         name: 'action',
         message: chalk.cyan('Select action'),
-        choices: [utils.getLeaveAction(), utils.getInviteAction(), utils.getStopAction()],
+        choices: [utils.getLeaveAction(), utils.getInviteAction(), utils.getSendAction(), utils.getStopAction()],
     });
 
     return prompt.run();
@@ -142,4 +152,6 @@ module.exports = {
     userToInvite,
     selectRoomsToInvite,
     selectAction,
+    inputMessage,
+    isSend,
 };

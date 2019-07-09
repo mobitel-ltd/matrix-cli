@@ -42,9 +42,7 @@ module.exports = class {
         }
 
         const ignoreMsg = ignoreUsers.length ? `of users (${ignoreUsers.join(', ')}) ` : '';
-        const infoRoomMsg = `\nWe found ${
-            rooms.length
-        } rooms where last activity ${ignoreMsg}was ${limit} months ago\n`;
+        const infoRoomMsg = `\nWe found ${rooms.length} rooms where last activity ${ignoreMsg}was ${limit} months ago\n`;
         this.logger.log(chalk.green(infoRoomMsg));
 
         (await this.ask.isShowRooms()) && rooms.map(this._printRoomDate.bind(this));
@@ -72,6 +70,34 @@ module.exports = class {
         if (userId && (await this.ask.isInvite())) {
             const unInviteRooms = await this.matrixService.inviteUserToRooms(inviteRooms, userId);
             unInviteRooms && (await this.ask.isShowErrors()) && this.logger.error(unInviteRooms);
+        }
+    }
+
+    /**
+     *
+     * @param {string?} room room name
+     * @param {string?} optionalMessage message from command line
+     */
+    async send(room, optionalMessage) {
+        const visibleRooms = await this.matrixService.getVisibleRooms();
+        const rooms = room
+            ? await this.matrixService.getRoomByName(room, visibleRooms)
+            : await this.ask.selectRoomsToInvite(visibleRooms);
+
+        if (rooms.length === 0) {
+            this.logger.warn('No room selected!');
+            return;
+        }
+
+        const message = optionalMessage || (await this.ask.inputMessage());
+
+        if (message) {
+            const errors = await this.matrixService.sendMessage(rooms, message);
+            if (errors) {
+                optionalMessage
+                    ? this.logger.error(errors)
+                    : (await this.ask.isShowErrors()) && this.logger.error(errors);
+            }
         }
     }
 

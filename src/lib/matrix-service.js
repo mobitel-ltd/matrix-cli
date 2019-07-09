@@ -59,6 +59,7 @@ module.exports = class {
                         lazyLoadMembers: true,
                     });
                     const readyClient = await this._getReadyClient(ctx.matrixClient);
+                    // eslint-disable-next-line
                     ctx.matrixClient = readyClient;
                 },
             },
@@ -117,6 +118,7 @@ module.exports = class {
 
     /**
      * Get all rooms
+     * @return {Promise<{roomId: string, roomName: string}[]>} array of rooms
      */
     async getVisibleRooms() {
         const client = this.client || (await this.getClient());
@@ -125,6 +127,17 @@ module.exports = class {
             roomId,
             roomName,
         }));
+    }
+
+    /**
+     *
+     * @param {string} roomName
+     * @param {{roomId: string, roomName: string}[]} visibleRooms rooms for user
+     */
+    async getRoomByName(roomName, visibleRooms) {
+        const rooms = visibleRooms || (await this.getVisibleRooms());
+
+        return rooms.filter(item => item.roomName.includes(roomName));
     }
 
     /**
@@ -173,6 +186,34 @@ module.exports = class {
     async getknownUsers() {
         const client = this.client || (await this.getClient());
         return client.getUsers();
+    }
+
+    /**
+     * Send message
+     * @param {array} rooms room id
+     * @param {string} message message to send
+     */
+    async sendMessage(rooms, message) {
+        const client = this.client || (await this.getClient());
+        try {
+            const preparedTasks = rooms.map(({ roomId, roomName }) => {
+                const title = `Sending message ${chalk.cyan(message)} to room ${chalk.cyan(roomName)}`;
+                const task = () => client.sendHtmlMessage(roomId, message, message);
+
+                return {
+                    title,
+                    task,
+                };
+            });
+            const tasks = new Listr(preparedTasks, {
+                concurrent: true,
+                exitOnError: false,
+            });
+
+            await tasks.run();
+        } catch (err) {
+            return err.errors;
+        }
     }
 
     /**

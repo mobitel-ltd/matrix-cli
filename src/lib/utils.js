@@ -6,6 +6,7 @@ const matrixHost = 'matrix';
 const LEAVE_ACTION = 'leave';
 const INVITE_ACTION = 'invite';
 const STOP_ACTION = 'stop';
+const SEND_ACTION = 'send';
 
 const utils = {
     getMatrixHostName: domain => [matrixHost, domain].join('.'),
@@ -28,6 +29,8 @@ const utils = {
     getInviteAction: () => INVITE_ACTION,
 
     getStopAction: () => STOP_ACTION,
+
+    getSendAction: () => SEND_ACTION,
 
     getBaseUrl: domain => url.format({ protocol, hostname: utils.getMatrixHostName(domain) }),
 
