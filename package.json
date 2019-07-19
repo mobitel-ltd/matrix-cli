@@ -41,12 +41,12 @@
         "enquirer": "^2.3.0",
         "listr": "^0.14.3",
         "matrix-js-sdk": "mobitel-ltd/matrix-js-sdk",
+        "delay": "^4.3.0",
         "moment": "^2.23.0"
     },
     "devDependencies": {
         "prettier": "1.18.2",
         "chance": "^1.0.18",
-        "delay": "^4.3.0",
         "dotenv": "^8.0.0",
         "eslint": "^6.0.1",
         "eslint-config-google": "^0.13.0",

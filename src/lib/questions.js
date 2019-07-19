@@ -30,7 +30,8 @@ const limitMonths = async initial => {
         message: chalk.blueBright('How many months ago from last activity in a room we should kick you?'),
         initial,
         validate(num) {
-            return +num > 1 && +num < 13;
+            const months = Number(num);
+            return months > 1 && months < 13;
         },
     });
 

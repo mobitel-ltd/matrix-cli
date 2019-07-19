@@ -11,7 +11,7 @@ const select = async (service, actions) => {
     if (actions.isStopAction(action)) {
         return;
     }
-    await actions[action](service);
+    await actions[action]();
 
     return select(service, actions);
 };

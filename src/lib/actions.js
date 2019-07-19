@@ -49,7 +49,7 @@ module.exports = class {
 
         if (await this.ask.isLeave()) {
             const unleavedRooms = await this.matrixService.leaveRooms(rooms);
-            unleavedRooms && (await this.ask.isShowErrors()) && this.logger.error(unleavedRooms);
+            unleavedRooms.length && (await this.ask.isShowErrors()) && this.logger.error(unleavedRooms);
             return unleavedRooms;
         }
     }
@@ -79,7 +79,9 @@ module.exports = class {
      * @param {string?} optionalMessage message from command line
      */
     async send(room, optionalMessage) {
+        // console.log('TCL: send -> room', room);
         const visibleRooms = await this.matrixService.getVisibleRooms();
+
         const rooms = room
             ? await this.matrixService.getRoomByName(room, visibleRooms)
             : await this.ask.selectRoomsToInvite(visibleRooms);

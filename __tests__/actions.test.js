@@ -1,14 +1,18 @@
 const MatrixService = require('../src/lib/matrix-service');
 const Actions = require('../src/lib/actions');
 const fakeSdk = require('./fixtures/fake-sdk');
-const {stub} = require('sinon');
+const { stub } = require('sinon');
 
 describe('Testing actions for bin', () => {
+    jest.setTimeout(30000);
+
     const options = {
         domain: 'domain',
         userName: 'userName',
         password: 'password',
         sdk: fakeSdk,
+        sliceAmount: 2,
+        delayTime: 20,
     };
 
     const askMock = {
@@ -24,7 +28,7 @@ describe('Testing actions for bin', () => {
     describe('Test leave method', () => {
         it('Expect leave works correct with all correct data', async () => {
             const res = await actions.leave();
-            expect(res).toBeFalsy();
+            expect(res.length).toBe(0);
         });
     });
 });

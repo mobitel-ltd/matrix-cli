@@ -2,9 +2,9 @@ const moment = require('moment');
 const fake = require('faker');
 // const delay = require('delay');
 const Service = require('../src/lib/matrix-service');
-const {stub} = require('sinon');
+const { stub } = require('sinon');
 const EventEmitter = require('events');
-const {getBaseUrl, getUserId} = require('../src/lib/utils');
+const { getBaseUrl, getUserId } = require('../src/lib/utils');
 
 const startDate = '2017-01-01';
 const ignoreUserName = 'some_user';
@@ -18,12 +18,15 @@ const getEvent = period => () => {
 };
 
 const getRoom = period => () => ({
+    currentState: {
+        getMembers: () => ['roomMember', 'roomMember', 'roomMember'],
+    },
     roomId: fake.random.uuid(),
     name: fake.random.word(),
-    timeline: Array.from({length: 10}, getEvent(period)),
+    timeline: Array.from({ length: 10 }, getEvent(period)),
 });
 
-const createRooms = (length, period) => Array.from({length}, getRoom(period));
+const createRooms = (length, period) => Array.from({ length }, getRoom(period));
 
 describe('test leave', () => {
     const accessToken = 'accessToken';
@@ -47,9 +50,11 @@ describe('test leave', () => {
     const loginWithPassword = stub();
 
     const sdkStub = {
-        createClient: (opts) => {
+        createClient: opts => {
             if (typeof opts === 'string') {
-                return stub().withArgs(baseUrl).returns({loginWithPassword})(opts);
+                return stub()
+                    .withArgs(baseUrl)
+                    .returns({ loginWithPassword })(opts);
             }
             return matrixClientStub;
         },
@@ -60,12 +65,14 @@ describe('test leave', () => {
         userName,
         password,
         sdk: sdkStub,
+        sliceAmount: 2,
+        delayTime: 20,
     };
 
     const service = new Service(options);
 
     beforeEach(() => {
-        loginWithPassword.withArgs(userId, password).resolves({access_token: accessToken});
+        loginWithPassword.withArgs(userId, password).resolves({ access_token: accessToken });
     });
 
     afterEach(() => {
@@ -80,7 +87,7 @@ describe('test leave', () => {
     });
 
     it('expect throw error if smth wrong', async () => {
-        const fakeService = new Service({...options, password: 'fakepassword'});
+        const fakeService = new Service({ ...options, password: 'fakepassword' });
         let res;
         let client;
         try {
@@ -144,7 +151,8 @@ describe('test leave', () => {
     });
 
     it('expect leaveRooms work until all rooms handled if one of them is thrown', async () => {
-        leaveStub.onFirstCall().throws(new Error());
+        leaveStub.onFirstCall().rejects(new Error());
+        leaveStub.onSecondCall().rejects(new Error());
         const limit = 10;
         const correctLength = 5;
         const endDate = moment().subtract(limit, 'months');
@@ -153,7 +161,7 @@ describe('test leave', () => {
 
         const rooms = await service.getRooms(limit);
         const res = await service.leaveRooms(rooms);
-        // console.log(res);
-        expect(res).toBeTruthy();
+        expect(leaveStub.callCount).toBe(5);
+        expect(res.length).toBe(2);
     });
 });

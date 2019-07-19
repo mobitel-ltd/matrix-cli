@@ -1,7 +1,8 @@
 const matrixSdk = require('matrix-js-sdk');
-const { getBaseUrl, getUserId, getRoomsLastUpdate } = require('./utils');
+const { getBaseUrl, getUserId, getRoomsLastUpdate, isEnglish, SLICE_AMOUNT } = require('./utils');
 const Listr = require('listr');
 const chalk = require('chalk');
+const delay = require('delay');
 
 const spinLoginText = 'login with password';
 const spinSyncText = 'wait for sync with matrix server\n';
@@ -10,12 +11,14 @@ module.exports = class {
     /**
      * @param {object} sdk sdk client
      */
-    constructor({ sdk, domain, userName, password }) {
+    constructor({ sdk, domain, userName, password, sliceAmount, delayTime }) {
         this.sdk = sdk || matrixSdk;
         this.userName = userName;
         this.domain = domain;
         this.password = password;
         this.client;
+        this.sliceAmount = sliceAmount || SLICE_AMOUNT;
+        this.delayTime = delayTime || 500;
     }
 
     /**
@@ -72,6 +75,15 @@ module.exports = class {
     }
 
     /**
+     * @param {Object} room matrix room
+     * @return {Boolean} return true if room is chat
+     */
+    _isChat(room) {
+        const allMembers = room.currentState.getMembers();
+        return allMembers.length < 3 && !isEnglish(room.name);
+    }
+
+    /**
      * @param {number} limit timestamp limit date
      * @param {array|string|undefined} users users to ignore in events
      */
@@ -79,27 +91,32 @@ module.exports = class {
         const ignoreUsers = typeof users === 'string' ? [users] : users;
         const matrixClient = this.client || (await this.getClient());
         const rooms = await matrixClient.getRooms();
-        const isEnglish = val => /[\w]/.test(val);
-        const isChat = room => {
-            const allMembers = room.currentState.getMembers();
-            return allMembers.length <= 2 && !isEnglish(room.name);
-        };
-        const filteredRooms = rooms.filter(room => !isChat(room));
+        const filteredRooms = rooms.filter(room => !this._isChat(room));
 
         return getRoomsLastUpdate(filteredRooms, limit, ignoreUsers);
     }
 
     /**
      * @param {array} rooms matrix rooms from getRooms
+     * @param {array} errors errors from leaveRooms
+     * @return {array} errors or empty array
      */
-    async leaveRooms(rooms = []) {
+    async leaveRooms(rooms = [], errors = []) {
+        if (!rooms.length) {
+            return errors;
+        }
+
+        console.clear();
         const client = this.client || (await this.getClient());
-        // TEST ONLY
-        // const [expectedRoom] = rooms;
+        const roomsToHandle = rooms.slice(0, this.sliceAmount);
+        const restRooms = rooms.slice(this.sliceAmount);
         try {
-            const preparedTasks = rooms.map(({ roomId, roomName }) => {
+            const preparedTasks = roomsToHandle.map(({ roomId, roomName }) => {
                 const title = `Leaving room ${roomName}`;
-                const task = () => client.leave(roomId);
+                const task = async () => {
+                    await delay(this.delayTime);
+                    return client.leave(roomId);
+                };
 
                 return {
                     title,
@@ -111,8 +128,10 @@ module.exports = class {
             });
 
             await tasks.run();
+
+            return this.leaveRooms(restRooms, errors);
         } catch (err) {
-            return err.errors;
+            return this.leaveRooms(restRooms, [...errors, ...err.errors]);
         }
     }
 

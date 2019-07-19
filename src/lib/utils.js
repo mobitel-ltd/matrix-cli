@@ -9,6 +9,10 @@ const STOP_ACTION = 'stop';
 const SEND_ACTION = 'send';
 
 const utils = {
+    SLICE_AMOUNT: 25,
+
+    isEnglish: val => /[\w]/.test(val),
+
     getMatrixHostName: domain => [matrixHost, domain].join('.'),
 
     parseRoom: ignoreUsers => ({ roomId, name: roomName, timeline }) => {
