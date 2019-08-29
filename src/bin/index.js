@@ -5,13 +5,14 @@ const chalk = require('chalk');
 const logger = require('../lib/logger');
 const Service = require('../lib/matrix-service');
 const Actions = require('../lib/actions');
+const utils = require('../lib/utils');
 
 const select = async (service, actions) => {
     const action = await ask.selectAction();
-    if (actions.isStopAction(action)) {
+    if (utils.isStopAction(action)) {
         return;
     }
-    await actions[action]();
+    await actions.runAction(action);
 
     return select(service, actions);
 };

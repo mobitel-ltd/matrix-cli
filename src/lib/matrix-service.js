@@ -84,6 +84,32 @@ module.exports = class {
     }
 
     /**
+     * @param {Object} room matrix room
+     * @return {Boolean} is only user in romm
+     */
+    async _isSingle(room) {}
+
+    /**
+     * @return {Promise<{allRooms: array, singleRooms: array, doubleRooms: array}>} matrix rooms
+     */
+    async getAllRoomsInfo() {
+        const matrixClient = this.client || (await this.getClient());
+        const allRooms = await matrixClient.getRooms();
+        const singleRooms = allRooms.filter(room => {
+            const allMembers = room.currentState.getMembers();
+
+            return allMembers.length < 2;
+        });
+        const doubleRooms = allRooms.filter(room => {
+            const allMembers = room.currentState.getMembers();
+
+            return allMembers.length === 2;
+        });
+
+        return { allRooms, singleRooms, doubleRooms };
+    }
+
+    /**
      * @param {number} limit timestamp limit date
      * @param {array|string|undefined} users users to ignore in events
      */

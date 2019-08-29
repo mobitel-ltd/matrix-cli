@@ -1,4 +1,3 @@
-const utils = require('./utils');
 const chalk = require('chalk');
 const myLogger = require('./logger');
 
@@ -75,6 +74,17 @@ module.exports = class {
 
     /**
      *
+     */
+    async getRoomsInfo() {
+        const roomsInfo = await this.matrixService.getAllRoomsInfo();
+
+        this.logger.log(
+            `All rooms count is ${roomsInfo.allRooms.length}. Single rooms count is ${roomsInfo.singleRooms.length}.`,
+        );
+    }
+
+    /**
+     *
      * @param {string?} room room name
      * @param {string?} optionalMessage message from command line
      */
@@ -104,10 +114,15 @@ module.exports = class {
     }
 
     /**
-     * @param {string} action service action
-     * @return {Boolean} Check if it's the end
+     *
+     * @param {string} action action
      */
-    isStopAction(action) {
-        return action === utils.getStopAction();
+    async runAction(action) {
+        console.log('TCL: runAction -> action', action);
+        if (!this) {
+            throw new `Unknown action ${action}`();
+        }
+
+        await this[action]();
     }
 };

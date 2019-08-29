@@ -135,7 +135,7 @@ const selectAction = () => {
     const prompt = new Select({
         name: 'action',
         message: chalk.cyan('Select action'),
-        choices: [utils.getLeaveAction(), utils.getInviteAction(), utils.getSendAction(), utils.getStopAction()],
+        choices: utils.getActions(),
     });
 
     return prompt.run();
