@@ -91,7 +91,7 @@ module.exports = class {
      * Get all available rooms and invite selected user
      */
     async [actions.invite]() {
-        const visibleRooms = await this.matrixService.getVisibleRooms();
+        const visibleRooms = await this.matrixService.getAllRoomsInfo();
         const inviteRooms = await this.ask.selectRoomsToInvite(visibleRooms);
         if (inviteRooms.length === 0) {
             return;
@@ -123,11 +123,11 @@ module.exports = class {
      * @param {string?} optionalMessage message from command line
      */
     async [actions.send](room, optionalMessage) {
-        const visibleRooms = await this.matrixService.getVisibleRooms();
+        const { allRooms } = await this.matrixService.getAllRoomsInfo();
 
         const rooms = room
-            ? await this.matrixService.getRoomByName(room, visibleRooms)
-            : await this.ask.selectRoomsToInvite(visibleRooms);
+            ? await this.matrixService.getRoomByName(room)
+            : await this.ask.selectRoomsToInvite(allRooms);
 
         if (rooms.length === 0) {
             this.logger.warn('No room selected!');

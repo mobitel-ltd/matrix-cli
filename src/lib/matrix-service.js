@@ -23,7 +23,6 @@ module.exports = class {
         this.client;
         this.sliceAmount = sliceAmount || SLICE_AMOUNT;
         this.delayTime = delayTime || 500;
-        this.leavedRooms = [];
     }
 
     /**
@@ -53,13 +52,13 @@ module.exports = class {
         return filePath;
     }
 
-    /**
-     * @param {array} rooms rooms
-     * Save rooms to file
-     */
-    async _saveRoomsToJson(rooms) {
-        await this.saveToJson(rooms, 'rooms');
-    }
+    // /**
+    //  * @param {array} rooms rooms
+    //  * Save rooms to file
+    //  */
+    // async _saveRoomsToJson(rooms) {
+    //     await this.saveToJson(rooms, 'rooms');
+    // }
 
     /**
      * Get matrix sync client
@@ -118,7 +117,16 @@ module.exports = class {
     async _isSingle(room) {}
 
     /**
-     * @return {Promise<object>} matrix rooms
+     * @typedef {Object} Room
+     * @property {string} project
+     * @property {string} roomId
+     * @property {string} roomName
+     * @property {string[]} members
+     * @property {{author: string, date: string}[]} message
+     */
+
+    /**
+     * @return {Promise<{allRooms: Room[], singleRoomsManyMessages: Room[], singleRoomsNoMessages: Room[], manyMembersNoMessages: Room[], manyMembersManyMessages: Room[]}>} matrix rooms
      */
     async getAllRoomsInfo() {
         const matrixClient = this.client || (await this.getClient());
@@ -164,7 +172,7 @@ module.exports = class {
         const manyMembersManyMessages = parsedRooms.filter(room => {
             return room.members.length > 1 && room.messages.length;
         });
-        await this._saveRoomsToJson(parsedRooms);
+        // await this._saveRoomsToJson(parsedRooms);
 
         return {
             allRooms: parsedRooms,
@@ -191,76 +199,65 @@ module.exports = class {
     async getRooms(limit, users = []) {
         const ignoreUsers = typeof users === 'string' ? [users] : users;
         const matrixClient = this.client || (await this.getClient());
-        const rooms = await matrixClient.getVisibleRooms();
+        const rooms = await matrixClient.getRooms();
         const filteredRooms = rooms.filter(room => !this._isChat(room));
 
         return getRoomsLastUpdate(filteredRooms, limit, ignoreUsers);
     }
 
     /**
-     * @param {array} rooms matrix rooms from getRooms
-     * @param {array} errors errors from leaveRooms
-     * @return {{leavedRooms: array, errors: array}} errors and leaved rooms empty array
+     * @param {{ roomId: string, roomName: string }[]} rooms matrix rooms from getRooms
+     * @return {Promise<{leavedRooms: { roomId: string, roomName: string }[], errors: object[]}>} errors and leaved rooms empty array
      */
-    async leaveRooms(rooms = [], errors = []) {
-        if (!rooms.length) {
-            const leavedRooms = this.leavedRooms;
+    async leaveRooms(rooms) {
+        const leavedRooms = [];
 
-            return { errors, leavedRooms };
-        }
+        const iter = async (rooms = [], errors = []) => {
+            if (!rooms.length) {
+                return { errors, leavedRooms };
+            }
 
-        console.clear();
-        const client = this.client || (await this.getClient());
-        const roomsToHandle = rooms.slice(0, this.sliceAmount);
-        const restRooms = rooms.slice(this.sliceAmount);
-        try {
-            const preparedTasks = roomsToHandle.map(({ roomId, roomName }) => {
-                const title = `Leaving room ${roomName}`;
-                const task = async () => {
-                    await delay(this.delayTime);
-                    await client.leave(roomId);
-                    this.leavedRooms.push({ roomId, roomName });
-                };
+            console.clear();
+            const client = this.client || (await this.getClient());
+            const roomsToHandle = rooms.slice(0, this.sliceAmount);
+            const restRooms = rooms.slice(this.sliceAmount);
+            try {
+                const preparedTasks = roomsToHandle.map(({ roomId, roomName }) => {
+                    const title = `Leaving room ${roomName}`;
+                    const task = async () => {
+                        await delay(this.delayTime);
+                        await client.leave(roomId);
+                        leavedRooms.push({ roomId, roomName });
+                    };
 
-                return {
-                    title,
-                    task,
-                };
-            });
-            const tasks = new Listr(preparedTasks, {
-                exitOnError: false,
-            });
+                    return {
+                        title,
+                        task,
+                    };
+                });
+                const tasks = new Listr(preparedTasks, {
+                    exitOnError: false,
+                });
 
-            await tasks.run();
+                await tasks.run();
 
-            return this.leaveRooms(restRooms, errors);
-        } catch (err) {
-            return this.leaveRooms(restRooms, [...errors, ...err.errors]);
-        }
-    }
+                return iter(restRooms, errors);
+            } catch (err) {
+                return iter(restRooms, [...errors, ...err.errors]);
+            }
+        };
 
-    /**
-     * Get all rooms
-     * @return {Promise<{roomId: string, roomName: string}[]>} array of rooms
-     */
-    async getVisibleRooms() {
-        const client = this.client || (await this.getClient());
-        const rooms = await client.getVisibleRooms();
-        return rooms.map(({ roomId, name: roomName }) => ({
-            roomId,
-            roomName,
-        }));
+        return iter(rooms);
     }
 
     /**
      *
      * @param {string} roomName
-     * @param {{roomId: string, roomName: string}[]} visibleRooms rooms for user
      */
-    async getRoomByName(roomName, visibleRooms) {
-        const rooms = visibleRooms || (await this.getVisibleRooms());
+    async getRoomByName(roomName) {
+        const { allRooms } = await this.getAllRoomsInfo();
 
-        return rooms.filter(item => item.roomName.includes(roomName));
+        return allRooms.filter(item => item.roomName.includes(roomName));
     }
 
     /**

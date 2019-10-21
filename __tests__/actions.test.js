@@ -29,7 +29,7 @@ describe('Testing actions for bin', () => {
     describe('Test leave method', () => {
         it('Expect leave works correct with all correct data', async () => {
             const res = await actions[act.leaveByDate]();
-            expect(res).toBeUndefined();
+            expect(res).toEqual([]);
         });
     });
 });

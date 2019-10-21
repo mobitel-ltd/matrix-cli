@@ -160,8 +160,8 @@ describe('test leave', () => {
         getRoomsStub.resolves(oldRooms);
 
         const rooms = await service.getRooms(limit);
-        const res = await service.leaveRooms(rooms);
-        expect(leaveStub.callCount).toBe(5);
-        expect(res.length).toBe(2);
+        const { errors, leavedRooms } = await service.leaveRooms(rooms);
+        expect(leavedRooms.length).toBe(3);
+        expect(errors.length).toBe(2);
     });
 });

@@ -16,7 +16,7 @@ const utils = {
         leaveEmpty: 'Empty rooms with no messages from real user (for bot managment only)',
     },
 
-    ignoreUsers: process.env.BOTS.split(' '),
+    ignoreUsers: process.env.BOTS ? process.env.BOTS.split(' ') : [],
 
     SLICE_AMOUNT: 25,
 

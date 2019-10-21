@@ -9,3 +9,6 @@ start:
 
 publish:
 	npm publish
+
+watch:
+	npm run test:watch
