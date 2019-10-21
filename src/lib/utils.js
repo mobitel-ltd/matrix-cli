@@ -1,15 +1,23 @@
+const { last } = require('lodash');
 const moment = require('moment');
 const url = require('url');
+require('dotenv').config();
 
 const protocol = 'https';
 const matrixHost = 'matrix';
-const LEAVE_ACTION = 'leave';
-const INVITE_ACTION = 'invite';
-const STOP_ACTION = 'stop';
-const SEND_ACTION = 'send';
-const ALL_ROOMS_ACTIONS = 'getRoomsInfo';
 
 const utils = {
+    actions: {
+        leaveByDate: 'Leave rooms by special date of the last real user (not bot) event',
+        invite: 'Invite user to some special room',
+        stop: 'Stop and exit',
+        send: 'Send message to a special room by name (alias)',
+        getRoomsInfo: 'Get info about rooms (all rooms, single rooms and other)',
+        leaveEmpty: 'Empty rooms with no messages from real user (for bot managment only)',
+    },
+
+    ignoreUsers: process.env.BOTS.split(' '),
+
     SLICE_AMOUNT: 25,
 
     isEnglish: val => /[\w]/.test(val),
@@ -17,7 +25,7 @@ const utils = {
     getMatrixHostName: domain => [matrixHost, domain].join('.'),
 
     parseRoom: ignoreUsers => ({ roomId, name: roomName, timeline }) => {
-        const lastEvent = utils.getLastRealSenderEvent(timeline, ignoreUsers);
+        const lastEvent = ignoreUsers ? utils.getLastRealSenderEvent(timeline, ignoreUsers) : last(timeline);
         if (!lastEvent) {
             return;
         }
@@ -27,11 +35,11 @@ const utils = {
         return { roomName, roomId, timestamp, date };
     },
 
-    isStopAction: action => action === STOP_ACTION,
+    isStopAction: action => action === utils.actions.stop,
 
     getOutdatedRooms: limit => ({ timestamp }) => timestamp < utils.getLimitTimestamp(limit),
 
-    getActions: () => [LEAVE_ACTION, INVITE_ACTION, STOP_ACTION, SEND_ACTION, ALL_ROOMS_ACTIONS],
+    getActions: () => Object.values(utils.actions),
 
     getBaseUrl: domain => url.format({ protocol, hostname: utils.getMatrixHostName(domain) }),
 
@@ -46,6 +54,9 @@ const utils = {
 
     getLastRealSenderEvent: (events, ignoreUsers) =>
         events.reverse().find(ev => !(ignoreUsers || []).some(user => ev.getSender().includes(user))),
+
+    getRealSenderMessages: (events, userId) =>
+        events.reverse().find(ev => ev.getSender() !== userId && ev.getType() === 'm.room.message'),
 
     getLimitTimestamp: limit =>
         moment()

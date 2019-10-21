@@ -57,6 +57,7 @@ const boolPrompt = question => async () => {
 
 const isShowRooms = boolPrompt('Show all rooms which you want to leave?');
 const isLeave = boolPrompt('Do you really want to leave???');
+const isSaveLeavedToFile = boolPrompt('Do you need to save leaved rooms to a file???');
 const isShowErrors = boolPrompt('Show all errors?');
 const isShowVisibles = boolPrompt(
     'Do you want to invite anybody to your known rooms? You will see list of available rooms',
@@ -142,6 +143,7 @@ const selectAction = () => {
 };
 
 module.exports = {
+    isSaveLeavedToFile,
     isShowErrors,
     isLeave,
     isShowRooms,

@@ -1,3 +1,4 @@
+const { actions: act } = require('../src/lib/utils');
 const MatrixService = require('../src/lib/matrix-service');
 const Actions = require('../src/lib/actions');
 const fakeSdk = require('./fixtures/fake-sdk');
@@ -27,8 +28,8 @@ describe('Testing actions for bin', () => {
 
     describe('Test leave method', () => {
         it('Expect leave works correct with all correct data', async () => {
-            const res = await actions.leave();
-            expect(res.length).toBe(0);
+            const res = await actions[act.leaveByDate]();
+            expect(res).toBeUndefined();
         });
     });
 });

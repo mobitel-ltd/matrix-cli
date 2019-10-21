@@ -1,11 +1,15 @@
+const fs = require('fs').promises;
 const matrixSdk = require('matrix-js-sdk');
-const { getBaseUrl, getUserId, getRoomsLastUpdate, isEnglish, SLICE_AMOUNT } = require('./utils');
+const { ignoreUsers, getBaseUrl, getUserId, getRoomsLastUpdate, isEnglish, SLICE_AMOUNT } = require('./utils');
 const Listr = require('listr');
 const chalk = require('chalk');
 const delay = require('delay');
+const path = require('path');
 
 const spinLoginText = 'login with password';
 const spinSyncText = 'wait for sync with matrix server\n';
+
+const formatName = name => name.split(':')[0].slice(1);
 
 module.exports = class {
     /**
@@ -19,6 +23,7 @@ module.exports = class {
         this.client;
         this.sliceAmount = sliceAmount || SLICE_AMOUNT;
         this.delayTime = delayTime || 500;
+        this.leavedRooms = [];
     }
 
     /**
@@ -33,6 +38,27 @@ module.exports = class {
                 }
             });
         });
+    }
+
+    /**
+     * @param {any} data data to save
+     * @param {string} name name alias
+     * Save leaved to file
+     */
+    async saveToJson(data, name) {
+        const fileName = `${name}_${Date.now()}.json`;
+        const filePath = path.resolve(__dirname, fileName);
+        await fs.writeFile(filePath, JSON.stringify(data), 'utf8');
+
+        return filePath;
+    }
+
+    /**
+     * @param {array} rooms rooms
+     * Save rooms to file
+     */
+    async _saveRoomsToJson(rooms) {
+        await this.saveToJson(rooms, 'rooms');
     }
 
     /**
@@ -58,8 +84,10 @@ module.exports = class {
             {
                 title: spinSyncText,
                 task: async ctx => {
+                    // await ctx.matrixClient.startClient({ initialSyncLimit: 1 });
                     await ctx.matrixClient.startClient({
-                        lazyLoadMembers: true,
+                        initialSyncLimit: 20,
+                        disablePresence: true,
                     });
                     const readyClient = await this._getReadyClient(ctx.matrixClient);
                     // eslint-disable-next-line
@@ -90,33 +118,80 @@ module.exports = class {
     async _isSingle(room) {}
 
     /**
-     * @return {Promise<{allRooms: array, singleRooms: array, doubleRooms: array}>} matrix rooms
+     * @return {Promise<object>} matrix rooms
      */
     async getAllRoomsInfo() {
         const matrixClient = this.client || (await this.getClient());
-        const allRooms = await matrixClient.getRooms();
-        const singleRooms = allRooms.filter(room => {
-            const allMembers = room.currentState.getMembers();
+        const rooms = await matrixClient.getRooms();
+        const parsedRooms = rooms.map(room => {
+            const roomId = room.roomId;
+            const roomName = room.name;
+            const [issueName] = room.name.split(' ');
+            const project = issueName.includes('-') ? issueName.split('-')[0] : 'custom project';
+            const members = room.getJoinedMembers().map(item => formatName(item.userId));
+            const messages = room.timeline
+                .map(event => {
+                    const author = formatName(event.getSender());
+                    const type = event.getType();
+                    const date = event.getDate();
 
-            return allMembers.length < 2;
+                    return { author, type, date };
+                })
+                .filter(({ author, type }) => type === 'm.room.message' && !ignoreUsers.includes(author))
+                .map(({ type, ...item }) => item);
+
+            return {
+                project,
+                roomId,
+                roomName,
+                members,
+                messages,
+            };
         });
-        const doubleRooms = allRooms.filter(room => {
-            const allMembers = room.currentState.getMembers();
 
-            return allMembers.length === 2;
+        const singleRoomsNoMessages = parsedRooms.filter(room => {
+            return room.members.length === 1 && room.messages.length === 0;
         });
 
-        return { allRooms, singleRooms, doubleRooms };
+        const singleRoomsManyMessages = parsedRooms.filter(room => {
+            return room.members.length === 1 && room.messages.length;
+        });
+
+        const manyMembersNoMessages = parsedRooms.filter(room => {
+            return room.members.length > 1 && room.messages.length === 0;
+        });
+
+        const manyMembersManyMessages = parsedRooms.filter(room => {
+            return room.members.length > 1 && room.messages.length;
+        });
+        await this._saveRoomsToJson(parsedRooms);
+
+        return {
+            allRooms: parsedRooms,
+            singleRoomsManyMessages,
+            singleRoomsNoMessages,
+            manyMembersNoMessages,
+            manyMembersManyMessages,
+        };
     }
 
     /**
-     * @param {number} limit timestamp limit date
+     * @return {Promise<array>} matrix rooms
+     */
+    async noMessagesEmptyRooms() {
+        const { singleRoomsNoMessages } = await this.getAllRoomsInfo();
+
+        return singleRoomsNoMessages;
+    }
+
+    /**
+     * @param {number|undefined} limit timestamp limit date
      * @param {array|string|undefined} users users to ignore in events
      */
     async getRooms(limit, users = []) {
         const ignoreUsers = typeof users === 'string' ? [users] : users;
         const matrixClient = this.client || (await this.getClient());
-        const rooms = await matrixClient.getRooms();
+        const rooms = await matrixClient.getVisibleRooms();
         const filteredRooms = rooms.filter(room => !this._isChat(room));
 
         return getRoomsLastUpdate(filteredRooms, limit, ignoreUsers);
@@ -125,11 +200,13 @@ module.exports = class {
     /**
      * @param {array} rooms matrix rooms from getRooms
      * @param {array} errors errors from leaveRooms
-     * @return {array} errors or empty array
+     * @return {{leavedRooms: array, errors: array}} errors and leaved rooms empty array
      */
     async leaveRooms(rooms = [], errors = []) {
         if (!rooms.length) {
-            return errors;
+            const leavedRooms = this.leavedRooms;
+
+            return { errors, leavedRooms };
         }
 
         console.clear();
@@ -141,7 +218,8 @@ module.exports = class {
                 const title = `Leaving room ${roomName}`;
                 const task = async () => {
                     await delay(this.delayTime);
-                    return client.leave(roomId);
+                    await client.leave(roomId);
+                    this.leavedRooms.push({ roomId, roomName });
                 };
 
                 return {
