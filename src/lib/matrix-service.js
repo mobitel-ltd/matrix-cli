@@ -1,3 +1,5 @@
+// @ts-check
+
 const fs = require('fs').promises;
 const matrixSdk = require('matrix-js-sdk');
 const { ignoreUsers, getBaseUrl, getUserId, getRoomsLastUpdate, isEnglish, SLICE_AMOUNT } = require('./utils');
@@ -5,6 +7,8 @@ const Listr = require('listr');
 const chalk = require('chalk');
 const delay = require('delay');
 const path = require('path');
+// eslint-disable-next-line
+const { Room } = require('matrix-js-sdk');
 
 const spinLoginText = 'login with password';
 const spinSyncText = 'wait for sync with matrix server\n';
@@ -106,8 +110,39 @@ module.exports = class {
      * @return {Boolean} return true if room is chat
      */
     _isChat(room) {
-        const allMembers = room.currentState.getMembers();
+        const allMembers = room.getJoinedMembers();
         return allMembers.length < 3 && !isEnglish(room.name);
+    }
+
+    /**
+     * Parse matrix room data
+     * @param {Room} room matrix room
+     * @return {{project: string, roomId: string, roomName: string, members: string[], messages: {author: string, date: string}[]}} parsed rooms
+     */
+    _parseRoom(room) {
+        const roomId = room.roomId;
+        const roomName = room.name;
+        const [issueName] = room.name.split(' ');
+        const project = issueName.includes('-') ? issueName.split('-')[0] : 'custom project';
+        const members = room.getJoinedMembers().map(item => formatName(item.userId));
+        const messages = room.timeline
+            .map(event => {
+                const author = formatName(event.getSender());
+                const type = event.getType();
+                const date = event.getDate();
+
+                return { author, type, date };
+            })
+            .filter(({ author, type }) => type === 'm.room.message' && !ignoreUsers.includes(author))
+            .map(({ type, ...item }) => item);
+
+        return {
+            project,
+            roomId,
+            roomName,
+            members,
+            messages,
+        };
     }
 
     /**
@@ -131,31 +166,7 @@ module.exports = class {
     async getAllRoomsInfo() {
         const matrixClient = this.client || (await this.getClient());
         const rooms = await matrixClient.getRooms();
-        const parsedRooms = rooms.map(room => {
-            const roomId = room.roomId;
-            const roomName = room.name;
-            const [issueName] = room.name.split(' ');
-            const project = issueName.includes('-') ? issueName.split('-')[0] : 'custom project';
-            const members = room.getJoinedMembers().map(item => formatName(item.userId));
-            const messages = room.timeline
-                .map(event => {
-                    const author = formatName(event.getSender());
-                    const type = event.getType();
-                    const date = event.getDate();
-
-                    return { author, type, date };
-                })
-                .filter(({ author, type }) => type === 'm.room.message' && !ignoreUsers.includes(author))
-                .map(({ type, ...item }) => item);
-
-            return {
-                project,
-                roomId,
-                roomName,
-                members,
-                messages,
-            };
-        });
+        const parsedRooms = rooms.map(room => this._parseRoom(room));
 
         const singleRoomsNoMessages = parsedRooms.filter(room => {
             return room.members.length === 1 && room.messages.length === 0;
@@ -217,6 +228,7 @@ module.exports = class {
                 return { errors, leavedRooms };
             }
 
+            // eslint-disable-next-line
             console.clear();
             const client = this.client || (await this.getClient());
             const roomsToHandle = rooms.slice(0, this.sliceAmount);
@@ -318,7 +330,7 @@ module.exports = class {
         try {
             const preparedTasks = rooms.map(({ roomId, roomName }) => {
                 const title = `Sending message ${chalk.cyan(message)} to room ${chalk.cyan(roomName)}`;
-                const task = () => client.sendHtmlMessage(roomId, message, message);
+                const task = () => client.sendTextMessage(roomId, message);
 
                 return {
                     title,

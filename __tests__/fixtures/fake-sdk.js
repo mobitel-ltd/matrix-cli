@@ -1,38 +1,48 @@
 const moment = require('moment');
 const Chance = require('chance');
 const fake = require('faker');
-const EventEmitter = require('events');
 const delay = require('delay');
-const { stub } = require('sinon');
+const { stub, createStubInstance } = require('sinon');
+const { MatrixClient, MatrixEvent, Room } = require('matrix-js-sdk');
 
 const chance = new Chance();
-const accessToken = 'accessToken';
+const matrixClientStub = { ...createStubInstance(MatrixClient) };
 
-const matrixClientStub = new EventEmitter();
-matrixClientStub.startClient = () => {
-    // console.log('START!!!');
-    setTimeout(() => matrixClientStub.emit('sync', 'SYNCING'), 1000);
-};
+const accessToken = 'accessToken';
+matrixClientStub.on.withArgs('sync').yields('SYNCING');
+
 const ignoreUserName = 'some_user';
 const limit = 10;
 const correctLength = 10;
 const getEvent = period => () => {
     const date = fake.date.between(...period);
-    return {
-        getTs: () => new Date(date).getTime(),
-        getDate: () => date,
-        getSender: () => fake.random.arrayElement([`@${ignoreUserName}1:matrix`, `@${ignoreUserName}2:matrix`]),
-    };
+    const eventsStub = createStubInstance(MatrixEvent, {
+        getType: stub().returns('m.room.message'),
+        getTs: stub().returns(new Date(date).getTime()),
+        getDate: stub().returns(date),
+        getSender: stub().returns(
+            fake.random.arrayElement([`@${ignoreUserName}1:matrix`, `@${ignoreUserName}2:matrix`]),
+        ),
+    });
+
+    return eventsStub;
 };
 
-const getRoom = period => () => ({
-    currentState: {
-        getMembers: () => ['roomMember', 'roomMember', 'roomMember'],
-    },
-    roomId: fake.random.uuid(),
-    name: fake.random.word(),
-    timeline: Array.from({ length: 10 }, getEvent(period)),
-});
+const getRoom = period => () => {
+    const roomStub = createStubInstance(Room, {
+        getJoinedMembers: stub().returns([
+            { userId: `@${'roomMember'}1:matrix` },
+            { userId: `@${'roomMember'}1:matrix` },
+            { userId: `@${'roomMember'}1:matrix` },
+        ]),
+    });
+    return {
+        ...roomStub,
+        roomId: fake.random.uuid(),
+        name: fake.random.word(),
+        timeline: Array.from({ length: 10 }, getEvent(period)),
+    };
+};
 
 const createRooms = (length, period) => Array.from({ length }, getRoom(period));
 const endDate = moment().subtract(limit, 'months');
@@ -43,26 +53,20 @@ const newRooms = createRooms(10, [endDate.add(1, 'day').format('YYYY-MM-DD'), mo
 
 const loginWithPassword = stub().resolves({ access_token: accessToken });
 // const leaveStub = stub().rejects(new Error());
-const leaveStub = stub()
-    .onFirstCall()
-    .throws(new Error());
-const inviteStub = stub();
+const allRooms = [...oldRooms, ...newRooms];
+matrixClientStub.getRooms = stub().resolves(allRooms);
 
-matrixClientStub.getRooms = stub().resolves([...oldRooms, ...newRooms]);
+matrixClientStub.leave.onFirstCall().rejects(new Error());
+matrixClientStub.leave.callsFake(async () => {
+    await delay(100);
+});
 
-matrixClientStub.leave = async () => {
-    await delay(fake.random.number({ min: 1000, max: 2000 }));
-    // throw new Error();
-    return leaveStub;
-};
-matrixClientStub.getVisibleRooms = stub().resolves(newRooms);
-matrixClientStub.invite = async () => {
-    await delay(fake.random.number({ min: 1000, max: 2000 }));
-    // throw new Error();
-    return inviteStub;
-};
-matrixClientStub.getUser = stub().resolves('@user:matrix.example.com');
-matrixClientStub.stopClient = stub();
+matrixClientStub.invite.callsFake(async () => {
+    await delay(100);
+});
+
+matrixClientStub.getUser.resolves('@user:matrix.example.com');
+
 const getFakeUser = () => ({
     userId: chance.word({ length: 2 }) + '_' + fake.name.firstName(),
     presence: fake.random.arrayElement(['offline', 'online']),
@@ -79,15 +83,21 @@ const getFakeUser = () => ({
 
 const users = Array.from({ length: 30 }, getFakeUser);
 
-matrixClientStub.getUsers = stub().resolves(users);
+matrixClientStub.getUsers.resolves(users);
 
-const sdkStub = {
+const sdkStub = stubClient => ({
     createClient: opts => {
         if (typeof opts === 'string') {
             return stub().returns({ loginWithPassword })(opts);
         }
-        return matrixClientStub;
+        return stubClient;
     },
-};
+});
 
-module.exports = sdkStub;
+module.exports = {
+    users,
+    allRooms,
+    matrixClientStub,
+    correctLength,
+    sdkStub,
+};

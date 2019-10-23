@@ -36,6 +36,7 @@ module.exports = class {
 
     /**
      * Get rooms by user params and leave them
+     * @return {Promise<{errors: [], leavedRooms: []} | undefined>} errors and leaved rooms
      */
     async [actions.leaveByDate]() {
         const limit = await this.ask.limitMonths(DEFAULT_LIMIT);
@@ -55,9 +56,9 @@ module.exports = class {
         (await this.ask.isShowRooms()) && rooms.map(this._printRoomDate.bind(this));
 
         if (await this.ask.isLeave()) {
-            const { errors } = await this.matrixService.leaveRooms(rooms);
-            errors.length && (await this.ask.isShowErrors()) && this.logger.error(errors);
-            return errors;
+            const res = await this.matrixService.leaveRooms(rooms);
+            res.errors.length && (await this.ask.isShowErrors()) && this.logger.error(res.errors);
+            return res;
         }
     }
 
@@ -89,10 +90,11 @@ module.exports = class {
 
     /**
      * Get all available rooms and invite selected user
+     * @return {Promise<{userId: string, errors: array, inviteRooms: []}>} result of invite
      */
     async [actions.invite]() {
-        const visibleRooms = await this.matrixService.getAllRoomsInfo();
-        const inviteRooms = await this.ask.selectRoomsToInvite(visibleRooms);
+        const { allRooms } = await this.matrixService.getAllRoomsInfo();
+        const inviteRooms = await this.ask.selectRoomsToInvite(allRooms);
         if (inviteRooms.length === 0) {
             return;
         }
@@ -101,8 +103,10 @@ module.exports = class {
         const userId = await this.ask.userToInvite(knownUsers);
 
         if (userId && (await this.ask.isInvite())) {
-            const unInviteRooms = await this.matrixService.inviteUserToRooms(inviteRooms, userId);
-            unInviteRooms && (await this.ask.isShowErrors()) && this.logger.error(unInviteRooms);
+            const errors = await this.matrixService.inviteUserToRooms(inviteRooms, userId);
+            errors && (await this.ask.isShowErrors()) && this.logger.error(errors);
+
+            return { invitedUser: userId, errors, inviteRooms };
         }
     }
 
@@ -115,6 +119,8 @@ module.exports = class {
         Object.entries(info).map(([key, rooms]) => {
             this.logger.log(chalk.blue('\n' + key + ' is ' + rooms.length));
         });
+
+        return info;
     }
 
     /**
@@ -144,18 +150,5 @@ module.exports = class {
                     : (await this.ask.isShowErrors()) && this.logger.error(errors);
             }
         }
-    }
-
-    /**
-     *
-     * @param {string} action action
-     */
-    async runAction(action) {
-        console.log('TCL: runAction -> action', action);
-        if (!this) {
-            throw `Unknown action ${action}`();
-        }
-
-        await this[action]();
     }
 };

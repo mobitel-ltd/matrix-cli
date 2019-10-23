@@ -1,0 +1,22 @@
+{
+    "parserOptions": {
+        "ecmaVersion": 2019
+    },
+    "extends": ["eslint:recommended", "google", "prettier"],
+    "env": {
+        "es6": true,
+        "node": true,
+        "jest": true
+    },
+    "rules": {
+        "no-console": "error"
+    }
+    // "overrides": [
+    //     {
+    //         "files": ["src/bin/*"],
+    //         "rules": {
+    //             "no-console": "off"
+    //         }
+    //     }
+    // ]
+}

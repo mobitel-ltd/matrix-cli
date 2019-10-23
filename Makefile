@@ -12,3 +12,6 @@ publish:
 
 watch:
 	npm run test:watch
+
+cover:
+	npm run test:coverage

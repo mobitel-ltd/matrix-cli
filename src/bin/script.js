@@ -3,6 +3,8 @@
 const program = require('commander');
 const Service = require('../lib/matrix-service');
 const Actions = require('../lib/actions');
+const logger = require('../lib/logger');
+
 require('dotenv').config();
 
 const baseOptions = {
@@ -19,11 +21,11 @@ program
     .option('-m, --message <name>', 'input message')
     .action(() => {
         if (!program.roomname) {
-            console.warn('Input roomName!!!');
+            logger.warn('Input roomName!!!');
             process.exit();
         }
         if (!program.message) {
-            console.warn('Input message!!!');
+            logger.warn('Input message!!!');
             process.exit();
         }
 
@@ -40,8 +42,8 @@ program
                 const actions = new Actions(service);
                 return actions.send(program.roomname, program.message);
             })
-            .then(() => console.log('All done'))
-            .catch(console.error)
+            .then(() => logger.log('All done'))
+            .catch(logger.error)
             .finally(() => {
                 service && service.stop();
                 process.exit();
