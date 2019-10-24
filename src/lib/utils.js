@@ -8,6 +8,7 @@ const matrixHost = 'matrix';
 
 const utils = {
     actions: {
+        getIdByAlias: 'Get room id by room alias in your matrix domain if it is exists',
         leaveByDate: 'Leave rooms by special date of the last real user (not bot) event',
         invite: 'Invite user to some special room',
         stop: 'Stop and exit',
@@ -44,6 +45,8 @@ const utils = {
     getBaseUrl: domain => url.format({ protocol, hostname: utils.getMatrixHostName(domain) }),
 
     getUserId: (userName, domain) => `@${userName}:${utils.getMatrixHostName(domain)}`,
+
+    getMatrixAlias: (partAlias, domain) => `#${partAlias}:${utils.getMatrixHostName(domain)}`,
 
     getRoomsLastUpdate: (rooms, limit, ignoreUsers) =>
         rooms

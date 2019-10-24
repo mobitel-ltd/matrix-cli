@@ -3,7 +3,16 @@ const ask = require('../src/lib/questions');
 const { actions: act } = require('../src/lib/utils');
 const MatrixService = require('../src/lib/matrix-service');
 const Actions = require('../src/lib/actions');
-const { sdkStub, correctLength, matrixClientStub, allRooms, users } = require('./fixtures/fake-sdk');
+const {
+    sdkStub,
+    correctLength,
+    matrixClientStub,
+    allRooms,
+    users,
+    existedAlias,
+    roomId,
+    fakeDomain,
+} = require('./fixtures/fake-sdk');
 const { stub, assert } = require('sinon');
 
 describe('Testing actions for bin', () => {
@@ -23,7 +32,7 @@ describe('Testing actions for bin', () => {
         askMock.selectRoomsToInvite.resolves([]);
         askMock.isInvite.resolves(true);
         const options = {
-            domain: 'domain',
+            domain: fakeDomain,
             userName: 'userName',
             password: 'password',
             sdk: sdkStub(matrixClientStub),
@@ -38,8 +47,8 @@ describe('Testing actions for bin', () => {
     describe('Test leave method', () => {
         it('Expect leave works correct with all correct data', async () => {
             const res = await actions[act.leaveByDate]();
-            expect(res.errors.length).toEqual(1);
-            expect(res.leavedRooms.length).toEqual(correctLength - 1);
+            expect(res.errors).toHaveLength(1);
+            expect(res.leavedRooms).toHaveLength(correctLength - 1);
         });
 
         it('Expect send works correct if no room we select', async () => {
@@ -84,7 +93,7 @@ describe('Testing actions for bin', () => {
             expect(res).toEqual({ invitedUser: users[0], inviteRooms: allRooms });
         });
 
-        it('Expect invite works well', async () => {
+        it('Expect get rooms info returns grouped data', async () => {
             const res = await actions[act.getRoomsInfo]();
             expect(res).toEqual({
                 allRooms: allRooms.map(room => matrixServiceMock._parseRoom(room)),
@@ -93,6 +102,23 @@ describe('Testing actions for bin', () => {
                 manyMembersNoMessages: [],
                 manyMembersManyMessages: allRooms.map(room => matrixServiceMock._parseRoom(room)),
             });
+        });
+
+        it('Expect getRoomByAlias works well and return roomId if alias is exists', async () => {
+            askMock.inputRoomAlias.resolves(existedAlias);
+            const res = await actions[act.getIdByAlias]();
+            expect(res).toEqual(roomId);
+        });
+
+        it('Expect getRoomByAlias return undefined if alias is not exists', async () => {
+            askMock.inputRoomAlias.resolves(random.word());
+            const res = await actions[act.getIdByAlias]();
+            expect(res).toBeUndefined();
+        });
+
+        it('Expect leaveEmpty return undefined single rooms dont exists', async () => {
+            const res = await actions[act.leaveEmpty]();
+            expect(res).toBeUndefined();
         });
     });
 });

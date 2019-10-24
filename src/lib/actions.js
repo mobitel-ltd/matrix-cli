@@ -67,6 +67,10 @@ module.exports = class {
      */
     async [actions.leaveEmpty]() {
         const rooms = await this.matrixService.noMessagesEmptyRooms();
+        if (!rooms.length) {
+            this.logger.log(chalk.green('\nWe dont found empty rooms with no messages\n'));
+            return;
+        }
 
         this.logger.log(chalk.green(`\nWe found ${rooms.length} empty rooms\n`));
         this.logger.log(chalk.green(`\nNo more 200 will be handele!\n`));
@@ -150,5 +154,22 @@ module.exports = class {
                     : (await this.ask.isShowErrors()) && this.logger.error(errors);
             }
         }
+    }
+
+    /**
+     * Get room id by alias
+     * @return {string?} roomId
+     */
+    async [actions.getIdByAlias]() {
+        const alias = await this.ask.inputRoomAlias();
+        if (!alias) {
+            return;
+        }
+
+        const roomId = await this.matrixService.getRoomByAlias(alias);
+        const msg = roomId ? roomId : `not found`;
+        this.logger.log(chalk.blue(`\nMatrix id for room with alias ${alias} is ${msg}\n`));
+
+        return roomId;
     }
 };

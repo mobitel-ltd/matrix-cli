@@ -142,6 +142,15 @@ const selectAction = () => {
     return prompt.run();
 };
 
+const inputRoomAlias = () => {
+    const prompt = new Input({
+        message: 'Input named part of room alias without "#" and ":your.domain"',
+        initial: 'message',
+    });
+
+    return prompt.run();
+};
+
 module.exports = {
     isSaveLeavedToFile,
     isShowErrors,
@@ -157,4 +166,5 @@ module.exports = {
     selectAction,
     inputMessage,
     isSend,
+    inputRoomAlias,
 };

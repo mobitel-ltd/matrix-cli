@@ -8,6 +8,7 @@ const { MatrixClient, MatrixEvent, Room } = require('matrix-js-sdk');
 const chance = new Chance();
 const matrixClientStub = { ...createStubInstance(MatrixClient) };
 
+const fakeDomain = fake.random.word();
 const accessToken = 'accessToken';
 matrixClientStub.on.withArgs('sync').yields('SYNCING');
 
@@ -85,6 +86,12 @@ const users = Array.from({ length: 30 }, getFakeUser);
 
 matrixClientStub.getUsers.resolves(users);
 
+const existedAlias = fake.random.word();
+
+const roomId = fake.random.uuid();
+matrixClientStub.getRoomIdForAlias.throws();
+matrixClientStub.getRoomIdForAlias.withArgs(`#${existedAlias}:matrix.${fakeDomain}`).resolves({ room_id: roomId });
+
 const sdkStub = stubClient => ({
     createClient: opts => {
         if (typeof opts === 'string') {
@@ -100,4 +107,7 @@ module.exports = {
     matrixClientStub,
     correctLength,
     sdkStub,
+    roomId,
+    existedAlias,
+    fakeDomain,
 };

@@ -1,4 +1,4 @@
-const {getLastRealSenderEvent} = require('../src/lib/utils');
+const { getLastRealSenderEvent } = require('../src/lib/utils');
 
 describe('Utils test', () => {
     it('getLastRealSenderEvent', () => {
@@ -13,10 +13,10 @@ describe('Utils test', () => {
             },
         ];
         const res = getLastRealSenderEvent(events, usersArr);
-        expect(res).toBeFalsy;
+        expect(res).toBeFalsy();
     });
 
-    it('getLastRealSenderEvent', () => {
+    it('getLastRealSenderEvent return event if real user sent smth', () => {
         const usersArr = ['abc', 'def', 'ghj'];
         const events = [
             {
@@ -28,10 +28,10 @@ describe('Utils test', () => {
             },
         ];
         const res = getLastRealSenderEvent(events, usersArr);
-        expect(res.expected).toBeTruthy;
+        expect(res.expected).toBeTruthy();
     });
 
-    it('getLastRealSenderEvent', () => {
+    it('getLastRealSenderEvent return correcy data if no users we put as unexpected', () => {
         const events = [
             {
                 getSender: () => '123',
@@ -42,6 +42,6 @@ describe('Utils test', () => {
             },
         ];
         const res = getLastRealSenderEvent(events, null);
-        expect(res.expected).toBeTruthy;
+        expect(res.expected).toBeTruthy();
     });
 });

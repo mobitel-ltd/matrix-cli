@@ -2,7 +2,15 @@
 
 const fs = require('fs').promises;
 const matrixSdk = require('matrix-js-sdk');
-const { ignoreUsers, getBaseUrl, getUserId, getRoomsLastUpdate, isEnglish, SLICE_AMOUNT } = require('./utils');
+const {
+    getMatrixAlias,
+    ignoreUsers,
+    getBaseUrl,
+    getUserId,
+    getRoomsLastUpdate,
+    isEnglish,
+    SLICE_AMOUNT,
+} = require('./utils');
 const Listr = require('listr');
 const chalk = require('chalk');
 const delay = require('delay');
@@ -260,6 +268,22 @@ module.exports = class {
         };
 
         return iter(rooms);
+    }
+
+    /**
+     * Get matrix room id by alias
+     * @param  {string} name matrix room alias
+     */
+    async getRoomByAlias(name) {
+        const matrixClient = this.client || (await this.getClient());
+        try {
+            const alias = getMatrixAlias(name, this.domain);
+            const { room_id: roomId } = await matrixClient.getRoomIdForAlias(alias);
+
+            return roomId;
+        } catch {
+            return;
+        }
     }
 
     /**
