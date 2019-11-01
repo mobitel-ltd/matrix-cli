@@ -1,20 +1,27 @@
 const { last } = require('lodash');
 const moment = require('moment');
 const url = require('url');
-require('dotenv').config();
+const path = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
+require('dotenv').config({ path });
 
 const protocol = 'https';
 const matrixHost = 'matrix';
 
+const stopAction = 'stop';
+
 const utils = {
+    formatName: name => name.split(':')[0].slice(1),
+
     actions: {
-        getIdByAlias: 'Get room id by room alias in your matrix domain if it is exists',
-        leaveByDate: 'Leave rooms by special date of the last real user (not bot) event',
-        invite: 'Invite user to some special room',
-        stop: 'Stop and exit',
-        send: 'Send message to a special room by name (alias)',
-        getRoomsInfo: 'Get info about rooms (all rooms, single rooms and other)',
-        leaveEmpty: 'Empty rooms with no messages from real user (for bot managment only)',
+        'Get room id by room alias in your matrix domain if it is exists': 'getIdByAlias',
+        'Leave rooms by special date of the last real user (not bot) event': 'leaveByDate',
+        'Invite user to some special room': 'invite',
+        'Stop and exit': stopAction,
+        'Send message to a special room by name (alias)': 'send',
+        'Get info about rooms (all rooms, single rooms and other)': 'getRoomsInfo',
+        'Empty rooms with no messages from real user (for bot managment only)': 'leaveEmpty',
+        'Join to all invited rooms': 'join',
+        'Leave by room member': 'leaveByMember',
     },
 
     ignoreUsers: process.env.BOTS ? process.env.BOTS.split(' ') : [],
@@ -36,11 +43,13 @@ const utils = {
         return { roomName, roomId, timestamp, date };
     },
 
-    isStopAction: action => action === utils.actions.stop,
+    isStopAction: action => action === stopAction,
 
     getOutdatedRooms: limit => ({ timestamp }) => timestamp < utils.getLimitTimestamp(limit),
 
-    getActions: () => Object.values(utils.actions),
+    getActions: () => Object.keys(utils.actions),
+
+    getMethod: action => utils.actions[action],
 
     getBaseUrl: domain => url.format({ protocol, hostname: utils.getMatrixHostName(domain) }),
 
@@ -65,6 +74,44 @@ const utils = {
         moment()
             .subtract(limit, 'months')
             .valueOf(),
+
+    timing: (startTime, now = Date.now()) => {
+        const timeSync = Math.floor((now - startTime) / 1000);
+        const min = Math.floor(timeSync / 60);
+        const sec = timeSync % 60;
+        return { min, sec };
+    },
+
+    /**
+     * Parse matrix room data
+     * @param {Room} room matrix room
+     * @return {{project: string, roomId: string, roomName: string, members: string[], messages: {author: string, date: string}[]}} parsed rooms
+     */
+    getParsedRooms: room => {
+        const roomId = room.roomId;
+        const roomName = room.name;
+        const [issueName] = room.name.split(' ');
+        const project = issueName.includes('-') ? issueName.split('-')[0] : 'custom project';
+        const members = room.getJoinedMembers().map(item => utils.formatName(item.userId));
+        const messages = room.timeline
+            .map(event => {
+                const author = utils.formatName(event.getSender());
+                const type = event.getType();
+                const date = event.getDate();
+
+                return { author, type, date };
+            })
+            .filter(({ author, type }) => type === 'm.room.message' && !utils.ignoreUsers.includes(author))
+            .map(({ type, ...item }) => item);
+
+        return {
+            project,
+            roomId,
+            roomName,
+            members,
+            messages,
+        };
+    },
 };
 
 module.exports = utils;

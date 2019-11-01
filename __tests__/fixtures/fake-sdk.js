@@ -4,69 +4,84 @@ const fake = require('faker');
 const delay = require('delay');
 const { stub, createStubInstance } = require('sinon');
 const { MatrixClient, MatrixEvent, Room } = require('matrix-js-sdk');
+const { ignoreUsers } = require('../../src/lib/utils');
 
 const chance = new Chance();
-const matrixClientStub = { ...createStubInstance(MatrixClient) };
-
 const fakeDomain = fake.random.word();
-const accessToken = 'accessToken';
-matrixClientStub.on.withArgs('sync').yields('SYNCING');
+const mainUserName = fake.random.word();
 
-const ignoreUserName = 'some_user';
+const accessToken = 'accessToken';
+const botId = fake.random.arrayElement(ignoreUsers);
+
+const ignoreUserName1 = 'some_user1';
+const ignoreUserName2 = 'some_user2';
+const existsMember = fake.random.arrayElement([ignoreUserName1, ignoreUserName2]);
+
 const limit = 10;
 const correctLength = 10;
-const getEvent = period => () => {
+const getEvent = (period, bot) => () => {
     const date = fake.date.between(...period);
     const eventsStub = createStubInstance(MatrixEvent, {
         getType: stub().returns('m.room.message'),
         getTs: stub().returns(new Date(date).getTime()),
         getDate: stub().returns(date),
         getSender: stub().returns(
-            fake.random.arrayElement([`@${ignoreUserName}1:matrix`, `@${ignoreUserName}2:matrix`]),
+            bot ||
+                fake.random.arrayElement([
+                    `@${ignoreUserName1}:matrix.${fakeDomain}`,
+                    `@${ignoreUserName2}:matrix.${fakeDomain}`,
+                ]),
         ),
     });
 
     return eventsStub;
 };
 
-const getRoom = period => () => {
+const getMembers = bot => {
+    const constantlyMember = [
+        {
+            userId: fake.random.arrayElement([
+                `@${ignoreUserName1}:matrix.${fakeDomain}`,
+                `@${ignoreUserName2}:matrix.${fakeDomain}`,
+            ]),
+        },
+        { userId: `@${mainUserName}:matrix.${fakeDomain}` },
+    ];
+
+    return bot ? [{ userId: bot }, ...constantlyMember] : constantlyMember;
+};
+
+const getRoom = (period, bot) => () => {
     const roomStub = createStubInstance(Room, {
-        getJoinedMembers: stub().returns([
-            { userId: `@${'roomMember'}1:matrix` },
-            { userId: `@${'roomMember'}1:matrix` },
-            { userId: `@${'roomMember'}1:matrix` },
-        ]),
+        getJoinedMembers: stub().returns(getMembers(bot)),
     });
     return {
         ...roomStub,
         roomId: fake.random.uuid(),
         name: fake.random.word(),
-        timeline: Array.from({ length: 10 }, getEvent(period)),
+        timeline: Array.from({ length: 10 }, getEvent(period, bot)),
     };
 };
 
-const createRooms = (length, period) => Array.from({ length }, getRoom(period));
+const createRooms = (length, period, bot) => Array.from({ length }, getRoom(period, bot));
 const endDate = moment().subtract(limit, 'months');
 const startDate = '2017-01-01';
 
 const oldRooms = createRooms(correctLength, [startDate, endDate.subtract(1, 'day').format('YYYY-MM-DD')]);
-const newRooms = createRooms(10, [endDate.add(1, 'day').format('YYYY-MM-DD'), moment().format('YYYY-MM-DD')]);
-
+const newRooms = createRooms(correctLength, [
+    endDate.add(1, 'day').format('YYYY-MM-DD'),
+    moment().format('YYYY-MM-DD'),
+]);
+const manyMembersNoMessages = createRooms(
+    correctLength,
+    [endDate.add(1, 'day').format('YYYY-MM-DD'), moment().format('YYYY-MM-DD')],
+    `@${botId}:${fakeDomain}`,
+);
+const manyMembersManyMessages = [...oldRooms, ...newRooms];
 const loginWithPassword = stub().resolves({ access_token: accessToken });
 // const leaveStub = stub().rejects(new Error());
-const allRooms = [...oldRooms, ...newRooms];
-matrixClientStub.getRooms = stub().resolves(allRooms);
 
-matrixClientStub.leave.onFirstCall().rejects(new Error());
-matrixClientStub.leave.callsFake(async () => {
-    await delay(100);
-});
-
-matrixClientStub.invite.callsFake(async () => {
-    await delay(100);
-});
-
-matrixClientStub.getUser.resolves('@user:matrix.example.com');
+const allRooms = [...manyMembersManyMessages, ...manyMembersNoMessages];
 
 const getFakeUser = () => ({
     userId: chance.word({ length: 2 }) + '_' + fake.name.firstName(),
@@ -84,13 +99,29 @@ const getFakeUser = () => ({
 
 const users = Array.from({ length: 30 }, getFakeUser);
 
-matrixClientStub.getUsers.resolves(users);
-
 const existedAlias = fake.random.word();
 
 const roomId = fake.random.uuid();
-matrixClientStub.getRoomIdForAlias.throws();
-matrixClientStub.getRoomIdForAlias.withArgs(`#${existedAlias}:matrix.${fakeDomain}`).resolves({ room_id: roomId });
+const createMatrixClientStub = () => {
+    const matrixClientStub = { ...createStubInstance(MatrixClient) };
+    matrixClientStub.on.withArgs('sync').yields('SYNCING');
+    matrixClientStub.leave.onFirstCall().rejects(new Error());
+    matrixClientStub.leave.callsFake(async () => {
+        await delay(10);
+    });
+
+    matrixClientStub.invite.callsFake(async () => {
+        await delay(10);
+    });
+
+    matrixClientStub.getUser.resolves('@user:matrix.example.com');
+    matrixClientStub.getRooms = stub().resolves(allRooms);
+    matrixClientStub.getUsers.resolves(users);
+    matrixClientStub.getRoomIdForAlias.throws();
+    matrixClientStub.getRoomIdForAlias.withArgs(`#${existedAlias}:matrix.${fakeDomain}`).resolves({ room_id: roomId });
+
+    return matrixClientStub;
+};
 
 const sdkStub = stubClient => ({
     createClient: opts => {
@@ -102,12 +133,15 @@ const sdkStub = stubClient => ({
 });
 
 module.exports = {
+    existsMember,
     users,
     allRooms,
-    matrixClientStub,
+    createMatrixClientStub,
     correctLength,
     sdkStub,
     roomId,
     existedAlias,
     fakeDomain,
+    manyMembersNoMessages,
+    manyMembersManyMessages,
 };

@@ -38,10 +38,20 @@ const limitMonths = async initial => {
     return result.limit;
 };
 
+const inputOne = async () => {
+    const prompt = new Input({
+        name: 'inputOne',
+        message: chalk.blueBright('Input user id to invite without any tabs'),
+    });
+
+    const data = await prompt.run();
+    return data.trim();
+};
+
 const inputUsers = async () => {
     const prompt = new List({
         name: 'inputUsers',
-        message: chalk.blueBright('Input name of users which activities in rooms we ignore (comma or space separated)'),
+        message: chalk.blueBright('Input name of users which activities in rooms we ignore (comma separated)'),
     });
 
     const result = await prompt.run();
@@ -63,15 +73,38 @@ const isShowVisibles = boolPrompt(
     'Do you want to invite anybody to your known rooms? You will see list of available rooms',
 );
 const isInvite = boolPrompt('Do you really want to invite to ALL selected rooms???');
+const isJoin = boolPrompt('Do you really want to join to ALL rooms you are invited???');
+const tryAgainForErrors = boolPrompt('Do you really want to try to join failed rooms???');
 const isSend = async message => await boolPrompt(`Do you really want to send ${message} to ALL selected rooms???`)();
 
-const userToInvite = async users => {
+const selectUser = async users => {
     const preparedUsers = users.map(({ userId, displayName }) => ({ name: userId, message: displayName }));
     const prompt = new AutoComplete({
         name: 'userId',
-        message: chalk.blueBright('Select user to invite'),
+        message: chalk.blueBright('Select user'),
         limit: 5,
         choices: preparedUsers,
+    });
+
+    return prompt.run();
+};
+
+/**
+ * @return {Promise<'allRooms' | 'singleRoomsManyMessages' | 'singleRoomsNoMessages' | 'manyMembersNoMessages' | 'manyMembersManyMessages'>} return selected strategy
+ */
+const selectStrategy = async () => {
+    const prompt = new Select({
+        name: 'action',
+        message: chalk.cyan(
+            'Select strategy you want to invite user, from all roooms or grouped rooms by messages and users',
+        ),
+        choices: [
+            'allRooms',
+            'singleRoomsManyMessages',
+            'singleRoomsNoMessages',
+            'manyMembersNoMessages',
+            'manyMembersManyMessages',
+        ],
     });
 
     return prompt.run();
@@ -132,20 +165,35 @@ const inputMessage = () => {
     return prompt.run();
 };
 
-const selectAction = () => {
+const selectAction = async () => {
     const prompt = new Select({
         name: 'action',
         message: chalk.cyan('Select action'),
         choices: utils.getActions(),
     });
 
-    return prompt.run();
+    const res = await prompt.run();
+
+    return utils.getMethod(res);
 };
 
 const inputRoomAlias = () => {
     const prompt = new Input({
         message: 'Input named part of room alias without "#" and ":your.domain"',
         initial: 'message',
+    });
+
+    return prompt.run();
+};
+
+/**
+ * @return {Promise<'existing' | 'print'>} select user way
+ */
+const selectUserStrategy = () => {
+    const prompt = new Select({
+        name: 'action',
+        message: chalk.cyan('Select user select way'),
+        choices: ['existing', 'print'],
     });
 
     return prompt.run();
@@ -161,10 +209,15 @@ module.exports = {
     inputUsers,
     isShowVisibles,
     isInvite,
-    userToInvite,
+    selectUser,
     selectRoomsToInvite,
     selectAction,
     inputMessage,
     isSend,
     inputRoomAlias,
+    selectStrategy,
+    selectUserStrategy,
+    inputOne,
+    isJoin,
+    tryAgainForErrors,
 };

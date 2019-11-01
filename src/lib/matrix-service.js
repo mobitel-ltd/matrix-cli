@@ -1,45 +1,47 @@
 // @ts-check
 
-const fs = require('fs').promises;
+const fileSystem = require('fs').promises;
 const matrixSdk = require('matrix-js-sdk');
 const {
+    getParsedRooms,
     getMatrixAlias,
-    ignoreUsers,
     getBaseUrl,
     getUserId,
     getRoomsLastUpdate,
     isEnglish,
     SLICE_AMOUNT,
+    timing,
 } = require('./utils');
 const Listr = require('listr');
 const chalk = require('chalk');
 const delay = require('delay');
 const path = require('path');
 // eslint-disable-next-line
-const { Room } = require('matrix-js-sdk');
+const { MatrixClient } = require('matrix-js-sdk');
 
 const spinLoginText = 'login with password';
 const spinSyncText = 'wait for sync with matrix server\n';
-
-const formatName = name => name.split(':')[0].slice(1);
 
 module.exports = class {
     /**
      * @param {object} sdk sdk client
      */
-    constructor({ sdk, domain, userName, password, sliceAmount, delayTime }) {
+    constructor({ sdk, domain, userName, password, sliceAmount, delayTime, fs = fileSystem, logger = console }) {
+        this.logger = logger;
         this.sdk = sdk || matrixSdk;
         this.userName = userName;
         this.domain = domain;
+        this.matrixUserId = getUserId(userName, domain);
         this.password = password;
         this.client;
         this.sliceAmount = sliceAmount || SLICE_AMOUNT;
         this.delayTime = delayTime || 500;
+        this.fs = fs;
     }
 
     /**
      * @param {object} client matrix client
-     * @return {Promise} promise with resolve after connection
+     * @return {Promise<MatrixClient>} promise with resolve after connection
      */
     _getReadyClient(client) {
         return new Promise((resolve, reject) => {
@@ -52,6 +54,22 @@ module.exports = class {
     }
 
     /**
+     *
+     */
+    _shouldJoin() {
+        this.client.on('RoomMember.membership', async (event, member) => {
+            if (member.membership === 'invite' && member.userId === this.getMatrixFormatUserId(this.userName)) {
+                try {
+                    await this.client.joinRoom(member.roomId);
+                    this.logger.info(`${this.userId} joined to room with id = ${member.roomId}`);
+                } catch (error) {
+                    this.logger.error(`Error joining to room with id = ${member.roomId}`);
+                }
+            }
+        });
+    }
+
+    /**
      * @param {any} data data to save
      * @param {string} name name alias
      * Save leaved to file
@@ -59,18 +77,18 @@ module.exports = class {
     async saveToJson(data, name) {
         const fileName = `${name}_${Date.now()}.json`;
         const filePath = path.resolve(__dirname, fileName);
-        await fs.writeFile(filePath, JSON.stringify(data), 'utf8');
+        await this.fs.writeFile(filePath, JSON.stringify(data), 'utf8');
 
         return filePath;
     }
 
-    // /**
-    //  * @param {array} rooms rooms
-    //  * Save rooms to file
-    //  */
-    // async _saveRoomsToJson(rooms) {
-    //     await this.saveToJson(rooms, 'rooms');
-    // }
+    /**
+     * @param {string} name user name
+     * @return {string} matrix format user id
+     */
+    getMatrixFormatUserId(name) {
+        return getUserId(name, this.domain);
+    }
 
     /**
      * Get matrix sync client
@@ -81,7 +99,7 @@ module.exports = class {
                 title: spinLoginText,
                 task: async ctx => {
                     const baseUrl = getBaseUrl(this.domain);
-                    const userId = getUserId(this.userName, this.domain);
+                    const userId = this.getMatrixFormatUserId(this.userName);
                     const client = this.sdk.createClient(baseUrl);
                     const { access_token: accessToken } = await client.loginWithPassword(userId, this.password);
                     const matrixClient = this.sdk.createClient({
@@ -97,7 +115,7 @@ module.exports = class {
                 task: async ctx => {
                     // await ctx.matrixClient.startClient({ initialSyncLimit: 1 });
                     await ctx.matrixClient.startClient({
-                        initialSyncLimit: 20,
+                        initialSyncLimit: 1,
                         disablePresence: true,
                     });
                     const readyClient = await this._getReadyClient(ctx.matrixClient);
@@ -106,9 +124,12 @@ module.exports = class {
                 },
             },
         ]);
+        const startTime = Date.now();
 
         const { matrixClient } = await tasks.run();
         this.client = matrixClient;
+        const { min, sec } = timing(startTime);
+        this.logger.info(chalk.green(`\nMatrix user have connected on ${min} min ${sec} sec\n`));
 
         return matrixClient;
     }
@@ -120,37 +141,6 @@ module.exports = class {
     _isChat(room) {
         const allMembers = room.getJoinedMembers();
         return allMembers.length < 3 && !isEnglish(room.name);
-    }
-
-    /**
-     * Parse matrix room data
-     * @param {Room} room matrix room
-     * @return {{project: string, roomId: string, roomName: string, members: string[], messages: {author: string, date: string}[]}} parsed rooms
-     */
-    _parseRoom(room) {
-        const roomId = room.roomId;
-        const roomName = room.name;
-        const [issueName] = room.name.split(' ');
-        const project = issueName.includes('-') ? issueName.split('-')[0] : 'custom project';
-        const members = room.getJoinedMembers().map(item => formatName(item.userId));
-        const messages = room.timeline
-            .map(event => {
-                const author = formatName(event.getSender());
-                const type = event.getType();
-                const date = event.getDate();
-
-                return { author, type, date };
-            })
-            .filter(({ author, type }) => type === 'm.room.message' && !ignoreUsers.includes(author))
-            .map(({ type, ...item }) => item);
-
-        return {
-            project,
-            roomId,
-            roomName,
-            members,
-            messages,
-        };
     }
 
     /**
@@ -174,7 +164,7 @@ module.exports = class {
     async getAllRoomsInfo() {
         const matrixClient = this.client || (await this.getClient());
         const rooms = await matrixClient.getRooms();
-        const parsedRooms = rooms.map(room => this._parseRoom(room));
+        const parsedRooms = rooms.map(getParsedRooms);
 
         const singleRoomsNoMessages = parsedRooms.filter(room => {
             return room.members.length === 1 && room.messages.length === 0;
@@ -225,29 +215,36 @@ module.exports = class {
     }
 
     /**
-     * @param {{ roomId: string, roomName: string }[]} rooms matrix rooms from getRooms
-     * @return {Promise<{leavedRooms: { roomId: string, roomName: string }[], errors: object[]}>} errors and leaved rooms empty array
+     * @param {{ roomId: string, roomName: string }[]} allRooms matrix rooms from getRooms
+     * @return {Promise<{leavedRooms: { roomId: string, roomName: string }[], errLeavedRooms: { roomId: string, roomName: string }[], errors: object[]}>} errors and leaved rooms empty array
      */
-    async leaveRooms(rooms) {
+    async leaveRooms(allRooms) {
+        const client = this.client || (await this.getClient());
         const leavedRooms = [];
+        const errLeavedRooms = [];
 
         const iter = async (rooms = [], errors = []) => {
             if (!rooms.length) {
-                return { errors, leavedRooms };
+                return { errors, leavedRooms, errLeavedRooms };
             }
 
             // eslint-disable-next-line
             console.clear();
-            const client = this.client || (await this.getClient());
+            this.logger.log(`Complited: ${chalk.green(leavedRooms.length)} Left: ${chalk.yellow(rooms.length)}`);
             const roomsToHandle = rooms.slice(0, this.sliceAmount);
             const restRooms = rooms.slice(this.sliceAmount);
             try {
                 const preparedTasks = roomsToHandle.map(({ roomId, roomName }) => {
-                    const title = `Leaving room ${roomName}`;
+                    const title = `Leaving room ${chalk.cyan(roomName)}`;
                     const task = async () => {
-                        await delay(this.delayTime);
-                        await client.leave(roomId);
-                        leavedRooms.push({ roomId, roomName });
+                        try {
+                            await delay(this.delayTime);
+                            await client.leave(roomId);
+                            leavedRooms.push({ roomId, roomName });
+                        } catch (error) {
+                            errLeavedRooms.push({ roomId, roomName });
+                            throw error;
+                        }
                     };
 
                     return {
@@ -267,7 +264,7 @@ module.exports = class {
             }
         };
 
-        return iter(rooms);
+        return iter(allRooms);
     }
 
     /**
@@ -298,33 +295,111 @@ module.exports = class {
 
     /**
      *
-     * @param {array} rooms matrix rooms of user
+     * @param {array} allRooms matrix rooms of user
      * @param {string} userId matrix userId
+     * @return {Promise<{invitedRooms: { roomId: string, roomName: string }[], errInvitedRooms: { roomId: string, roomName: string }[], errors: object[]}>} errors and leaved rooms empty array
      */
-    async inviteUserToRooms(rooms, userId) {
+    async inviteUserToRooms(allRooms, userId) {
         const client = this.client || (await this.getClient());
-        // TEST ONLY
-        // const [expectedRoom] = rooms;
-        // const preparedTasks = [expectedRoom].map(({roomId, roomName}) => {
-        try {
-            const preparedTasks = rooms.map(({ roomId, roomName }) => {
-                const title = `Inviting user ${chalk.cyan(userId)} to room ${chalk.cyan(roomName)}`;
-                const task = () => client.invite(roomId, userId);
+        const invitedRooms = [];
+        const errInvitedRooms = [];
 
-                return {
-                    title,
-                    task,
-                };
-            });
-            const tasks = new Listr(preparedTasks, {
-                concurrent: true,
-                exitOnError: false,
-            });
+        const iter = async (rooms = [], errors = []) => {
+            if (!rooms.length) {
+                return { errors, invitedRooms, errInvitedRooms };
+            }
 
-            await tasks.run();
-        } catch (err) {
-            return err.errors;
-        }
+            // eslint-disable-next-line
+            console.clear();
+            const roomsToHandle = rooms.slice(0, this.sliceAmount);
+            const restRooms = rooms.slice(this.sliceAmount);
+            try {
+                const preparedTasks = roomsToHandle.map(({ roomId, roomName }) => {
+                    const title = `Inviting user ${chalk.cyan(userId)} to room ${chalk.cyan(roomName)}`;
+                    const task = async () => {
+                        try {
+                            await delay(this.delayTime);
+                            await client.invite(roomId, userId);
+                            invitedRooms.push({ roomId, roomName });
+                        } catch (error) {
+                            errInvitedRooms.push({ roomId, roomName });
+                            throw error;
+                        }
+                    };
+
+                    return {
+                        title,
+                        task,
+                    };
+                });
+                const tasks = new Listr(preparedTasks, {
+                    exitOnError: false,
+                });
+
+                await tasks.run();
+
+                return iter(restRooms, errors);
+            } catch (err) {
+                return iter(restRooms, [...errors, ...err.errors]);
+            }
+        };
+
+        return iter(allRooms);
+    }
+
+    /** @type { roomId: string, roomName: string } ParsedRoom */
+
+    /**
+     *
+     * @param {array} allRooms matrix rooms to join
+     * @return {Promise<{joinedRooms: ParsedRoom[], errors: object[], errJoinedRooms: ParsedRoom[]}>} errors and leaved rooms empty array
+     */
+    async join(allRooms) {
+        const client = this.client || (await this.getClient());
+        const joinedRooms = [];
+        const errJoinedRooms = [];
+
+        const iter = async (rooms = [], errors = []) => {
+            if (!rooms.length) {
+                return { errors, joinedRooms, errJoinedRooms };
+            }
+
+            // eslint-disable-next-line
+            console.clear();
+            const roomsToHandle = rooms.slice(0, this.sliceAmount);
+            const restRooms = rooms.slice(this.sliceAmount);
+            try {
+                const preparedTasks = roomsToHandle.map(({ roomId, roomName }) => {
+                    const title = `Join user ${chalk.cyan(this.userName)} to room ${chalk.cyan(roomName)}`;
+                    const task = async () => {
+                        try {
+                            await delay(this.delayTime);
+                            await client.joinRoom(roomId);
+                            joinedRooms.push({ roomId, roomName });
+                        } catch (error) {
+                            errJoinedRooms.push({ roomId, roomName });
+                            throw error;
+                        }
+                    };
+
+                    return {
+                        title,
+                        task,
+                    };
+                });
+                const tasks = new Listr(preparedTasks, {
+                    exitOnError: false,
+                });
+
+                await tasks.run();
+
+                return iter(restRooms, errors);
+            } catch (err) {
+                return iter(restRooms, [...errors, ...err.errors]);
+            }
+        };
+
+        return iter(allRooms);
     }
 
     /**

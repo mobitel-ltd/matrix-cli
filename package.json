@@ -14,6 +14,9 @@
         ],
         "moduleFileExtensions": [
             "js"
+        ],
+        "modulePathIgnorePatterns": [
+            "node_modules"
         ]
     },
     "scripts": {

@@ -1,7 +1,6 @@
-const { take } = require('lodash');
+const { formatName } = require('./utils');
 const chalk = require('chalk');
 const myLogger = require('./logger');
-const { actions } = require('./utils');
 // eslint-disable-next-line
 const MatrixService = require('./matrix-service');
 // eslint-disable-next-line
@@ -35,10 +34,34 @@ module.exports = class {
     }
 
     /**
-     * Get rooms by user params and leave them
-     * @return {Promise<{errors: [], leavedRooms: []} | undefined>} errors and leaved rooms
+     * Leave room recursive method
+     * @param {Room[]} rooms
+     * @return {Promise<{errors: Error[], leavedRooms: Room[], errLeavedRooms: Room[]} | undefined>} errors and leaved rooms
      */
-    async [actions.leaveByDate]() {
+    async _runLeaving(rooms) {
+        const res = await this.matrixService.leaveRooms(rooms);
+        const { errors, leavedRooms, errLeavedRooms } = res;
+        leavedRooms.length && this.logger.log(chalk.green(`\nYou have leaved ${leavedRooms.length} rooms!!!\n`));
+
+        errLeavedRooms.length &&
+            this.logger.log(chalk.green(`\nYou couldn't leave ${errLeavedRooms.length} rooms!!!\n`));
+
+        errors.length && (await this.ask.isShowErrors()) && this.logger.error(errors);
+
+        const isSave = await this.ask.isSaveLeavedToFile();
+        if (isSave) {
+            const pathToFile = await this.matrixService.saveToJson(leavedRooms, 'leaved');
+            this.logger.log(chalk.blue('\nPath to file: '), chalk.yellow(pathToFile));
+        }
+
+        return errLeavedRooms.length && (await this.ask.tryAgainForErrors()) ? this._runLeaving(errLeavedRooms) : res;
+    }
+
+    /**
+     * Get rooms by user params and leave them
+     * @return {Promise<{errors: Error[], leavedRooms: Room[], errLeavedRooms: Room[]} | undefined>} errors and leaved rooms
+     */
+    async leaveByDate() {
         const limit = await this.ask.limitMonths(DEFAULT_LIMIT);
         const ignoreUsers = await this.ask.inputUsers();
 
@@ -56,16 +79,15 @@ module.exports = class {
         (await this.ask.isShowRooms()) && rooms.map(this._printRoomDate.bind(this));
 
         if (await this.ask.isLeave()) {
-            const res = await this.matrixService.leaveRooms(rooms);
-            res.errors.length && (await this.ask.isShowErrors()) && this.logger.error(res.errors);
-            return res;
+            return this._runLeaving(rooms);
         }
     }
 
     /**
      * Get rooms by user params and leave them
+     * @return {Promise<{errors: Error[], leavedRooms: Room[], errLeavedRooms: Room[]} | undefined>} errors and leaved rooms
      */
-    async [actions.leaveEmpty]() {
+    async leaveEmpty() {
         const rooms = await this.matrixService.noMessagesEmptyRooms();
         if (!rooms.length) {
             this.logger.log(chalk.green('\nWe dont found empty rooms with no messages\n'));
@@ -73,51 +95,144 @@ module.exports = class {
         }
 
         this.logger.log(chalk.green(`\nWe found ${rooms.length} empty rooms\n`));
-        this.logger.log(chalk.green(`\nNo more 200 will be handele!\n`));
-        const first200 = take(rooms, 200);
         if (await this.ask.isShowRooms()) {
-            first200.map(this._printRoomDate.bind(this));
+            rooms.map(this._printRoomDate.bind(this));
         }
 
         if (await this.ask.isLeave()) {
-            const { errors, leavedRooms } = await this.matrixService.leaveRooms(first200);
-            errors.length && (await this.ask.isShowErrors()) && this.logger.error(errors);
+            return this._runLeaving(rooms);
+        }
+    }
+
+    /**
+     * Leave all rooms where some user exists
+     * @return {Promise<{errors: array, leavedRooms: Rooms[], errLeavedRooms: Rooms[]}>} result of invite
+     */
+    async leaveByMember() {
+        const matrixUser = await this._selectUser();
+
+        if (!matrixUser) {
+            this.logger.log(chalk.yellow('\nNo user selected!!!\n'));
+            return;
+        }
+
+        const userId = formatName(matrixUser);
+        const { allRooms } = await this.matrixService.getAllRoomsInfo();
+
+        const memberRooms = allRooms.filter(room => {
+            return room.members.includes(userId);
+        });
+        if (!memberRooms.length) {
+            this.logger.log(chalk.yellow(`\nNo room with user ${userId} is found\n`));
+            return;
+        }
+
+        this.logger.log(chalk.green(`\nWe found ${memberRooms.length} with joined member ${userId}\n`));
+
+        if (await this.ask.isLeave()) {
+            return this._runLeaving(memberRooms);
+        }
+    }
+
+    /**
+     * Join to room from list
+     * @return {Promise<{errors: Error[], joinedRooms: []}>} result of invite
+     */
+    async join() {
+        const { allRooms } = await this.matrixService.getAllRoomsInfo();
+        const notJoinedRooms = allRooms.filter(room => !room.members.includes(this.matrixService.userName));
+        if (notJoinedRooms.length === 0) {
+            this.logger.log(chalk.yellow(`\nAll rooms, where you are invited, you have alredy joned!\n`));
+            return;
+        }
+        this.logger.log(chalk.green(`\nWe found ${notJoinedRooms.length} rooms you are invited but not joined\n`));
+
+        const iter = async rooms => {
+            const res = await this.matrixService.join(rooms);
+            const { joinedRooms, errors, errJoinedRooms } = res;
             const isSave = await this.ask.isSaveLeavedToFile();
+
+            joinedRooms.length && this.logger.log(chalk.green(`\nYou have joined to ${joinedRooms.length} rooms!!!\n`));
+
+            errJoinedRooms.length &&
+                this.logger.log(chalk.green(`\nYou couldn't join to ${errJoinedRooms.length} rooms!!!\n`));
+
+            errors.length && (await this.ask.isShowErrors()) && this.logger.error(errors);
+
             if (isSave) {
-                const pathToFile = await this.matrixService.saveToJson(leavedRooms, 'leaved');
+                const pathToFile = await this.matrixService.saveToJson(joinedRooms, 'joined');
                 this.logger.log(chalk.blue('\nPath to file: '), chalk.yellow(pathToFile));
             }
 
-            return errors;
+            return errJoinedRooms.length && (await this.ask.tryAgainForErrors()) ? iter(errJoinedRooms) : res;
+        };
+
+        if (await this.ask.isJoin()) {
+            return iter(notJoinedRooms);
         }
+    }
+
+    /**
+     * Select user from existing or print name
+     * @return {string} user id
+     */
+    async _selectUser() {
+        const selectWays = {
+            existing: async () => {
+                const knownUsers = await this.matrixService.getknownUsers();
+                return this.ask.selectUser(knownUsers);
+            },
+            print: async () => {
+                const user = await this.ask.inputOne();
+
+                return user && this.matrixService.getMatrixFormatUserId(user);
+            },
+        };
+        const userStrategy = await this.ask.selectUserStrategy();
+
+        return selectWays[userStrategy]();
     }
 
     /**
      * Get all available rooms and invite selected user
-     * @return {Promise<{userId: string, errors: array, inviteRooms: []}>} result of invite
+     * @return {Promise<{userId: string, errors: array, invitedRooms: []}>} result of invite
      */
-    async [actions.invite]() {
-        const { allRooms } = await this.matrixService.getAllRoomsInfo();
-        const inviteRooms = await this.ask.selectRoomsToInvite(allRooms);
+    async invite() {
+        const rooms = await this.matrixService.getAllRoomsInfo();
+        const strategy = await this.ask.selectStrategy();
+        const inviteRooms = await this.ask.selectRoomsToInvite(rooms[strategy]);
         if (inviteRooms.length === 0) {
+            this.logger.log(chalk.yellow(`\nIn group ${strategy} no rooms found\n`));
             return;
         }
 
-        const knownUsers = await this.matrixService.getknownUsers();
-        const userId = await this.ask.userToInvite(knownUsers);
+        const userId = await this._selectUser();
 
-        if (userId && (await this.ask.isInvite())) {
-            const errors = await this.matrixService.inviteUserToRooms(inviteRooms, userId);
-            errors && (await this.ask.isShowErrors()) && this.logger.error(errors);
+        if (!userId) {
+            this.logger.log(chalk.yellow('\nNo user is selected\n'));
+            return;
+        }
 
-            return { invitedUser: userId, errors, inviteRooms };
+        if (await this.ask.isInvite()) {
+            const { errors, invitedRooms, errInvitedRooms } = await this.matrixService.inviteUserToRooms(
+                inviteRooms,
+                userId,
+            );
+            errors.length && (await this.ask.isShowErrors()) && this.logger.error(errors);
+            const isSave = await this.ask.isSaveLeavedToFile();
+            if (isSave) {
+                const pathToFile = await this.matrixService.saveToJson(invitedRooms, 'invited');
+                this.logger.log(chalk.blue('\nPath to file: '), chalk.yellow(pathToFile));
+            }
+
+            return { errors, invitedRooms, invitedUser: userId, errInvitedRooms };
         }
     }
 
     /**
-     *
+     * @return {Promise<{allRooms: Room[], singleRoomsManyMessages: Room[], singleRoomsNoMessages: Room[], manyMembersNoMessages: Room[], manyMembersManyMessages: Room[]}>} matrix rooms
      */
-    async [actions.getRoomsInfo]() {
+    async getRoomsInfo() {
         const info = await this.matrixService.getAllRoomsInfo();
 
         Object.entries(info).map(([key, rooms]) => {
@@ -132,7 +247,7 @@ module.exports = class {
      * @param {string?} room room name
      * @param {string?} optionalMessage message from command line
      */
-    async [actions.send](room, optionalMessage) {
+    async send(room, optionalMessage) {
         const { allRooms } = await this.matrixService.getAllRoomsInfo();
 
         const rooms = room
@@ -160,7 +275,7 @@ module.exports = class {
      * Get room id by alias
      * @return {string?} roomId
      */
-    async [actions.getIdByAlias]() {
+    async getIdByAlias() {
         const alias = await this.ask.inputRoomAlias();
         if (!alias) {
             return;
