@@ -23,6 +23,7 @@ describe('Testing actions for bin', () => {
     jest.setTimeout(30000);
     const message = random.words;
 
+    /**  @type {Actions} action */
     let actions;
     let matrixServiceMock;
     let matrixClientStub;
@@ -78,13 +79,13 @@ describe('Testing actions for bin', () => {
     describe('Test invite', () => {
         beforeEach(() => {
             askMock.selectStrategy.resolves('allRooms');
-            askMock.selectRoomsToInvite.callsFake(data => Promise.resolve(data));
+            askMock.selectRooms.callsFake(data => Promise.resolve(data));
             askMock.selectUserStrategy.resolves('print');
             askMock.inputOne.resolves();
         });
 
         it('Expect invite user returns undefined if no room is choosen', async () => {
-            askMock.selectRoomsToInvite.resolves([]);
+            askMock.selectRooms.resolves([]);
             const res = await actions.invite();
             expect(res).toBeUndefined();
         });
@@ -126,7 +127,7 @@ describe('Testing actions for bin', () => {
 
     describe('Test send', () => {
         it('Expect send works correct if no room we select', async () => {
-            askMock.selectRoomsToInvite.resolves([]);
+            askMock.selectRooms.resolves([]);
             const res = await actions.send();
             assert.notCalled(matrixClientStub.sendTextMessage);
 
@@ -134,14 +135,14 @@ describe('Testing actions for bin', () => {
         });
 
         it('Expect send dont send any message if no input we pass', async () => {
-            askMock.selectRoomsToInvite.resolves(allRooms);
+            askMock.selectRooms.resolves(allRooms);
             const res = await actions.send();
             assert.notCalled(matrixClientStub.sendTextMessage);
             expect(res).toBeUndefined();
         });
 
         it('Expect send works correct if all rooms we select', async () => {
-            askMock.selectRoomsToInvite.resolves(allRooms);
+            askMock.selectRooms.resolves(allRooms);
             askMock.inputMessage.resolves(message);
             const res = await actions.send();
 
@@ -201,12 +202,14 @@ describe('Testing actions for bin', () => {
 
         it('Expect leaveByMember return undefined if we not agree with leaving', async () => {
             askMock.inputOne.resolves(existsMember);
+            askMock.selectRooms.callsFake(data => Promise.resolve(data));
             const res = await actions.leaveByMember();
             expect(res).toBeUndefined();
         });
 
         it('Expect leaveByMember all rooms leaved where user is joined member', async () => {
             askMock.inputOne.resolves(existsMember);
+            askMock.selectRooms.callsFake(data => Promise.resolve(data));
             askMock.isLeave.resolves(true);
 
             const { leavedRooms, errLeavedRooms, errors } = await actions.leaveByMember();
@@ -214,6 +217,17 @@ describe('Testing actions for bin', () => {
             expect(errors).toHaveLength(1);
             expect(leavedRooms).toHaveLength(allRoomsWithMember.length - 1);
             expect(errLeavedRooms).toHaveLength(1);
+        });
+    });
+
+    describe('Test setPower', () => {
+        beforeEach(() => {
+            askMock.selectUserStrategy.resolves('print');
+        });
+
+        it('Expect setPower return undefined if we no user is input', async () => {
+            const res = await actions.setPower();
+            expect(res).toBeUndefined();
         });
     });
 });

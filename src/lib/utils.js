@@ -13,15 +13,16 @@ const utils = {
     formatName: name => name.split(':')[0].slice(1),
 
     actions: {
-        'Get room id by room alias in your matrix domain if it is exists': 'getIdByAlias',
-        'Leave rooms by special date of the last real user (not bot) event': 'leaveByDate',
-        'Invite user to some special room': 'invite',
-        'Stop and exit': stopAction,
-        'Send message to a special room by name (alias)': 'send',
         'Get info about rooms (all rooms, single rooms and other)': 'getRoomsInfo',
-        'Empty rooms with no messages from real user (for bot managment only)': 'leaveEmpty',
-        'Join to all invited rooms': 'join',
+        'Leave rooms by special date of the last real user (not bot) event': 'leaveByDate',
+        'Levae empty rooms with no messages from real user (for bot managment only)': 'leaveEmpty',
         'Leave by room member': 'leaveByMember',
+        'Get room id by room alias in your matrix domain if it is exists': 'getIdByAlias',
+        'Invite user to some special rooms': 'invite',
+        'Send message to a special room by name (alias)': 'send',
+        'Join to all invited rooms': 'join',
+        'Set power level 100 to selected rooms': 'setPower',
+        'Stop and exit': stopAction,
     },
 
     ignoreUsers: process.env.BOTS ? process.env.BOTS.split(' ') : [],

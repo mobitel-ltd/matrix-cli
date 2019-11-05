@@ -95,12 +95,10 @@ module.exports = class {
         }
 
         this.logger.log(chalk.green(`\nWe found ${rooms.length} empty rooms\n`));
-        if (await this.ask.isShowRooms()) {
-            rooms.map(this._printRoomDate.bind(this));
-        }
+        const selectedRooms = await this.ask.selectRooms(rooms);
 
-        if (await this.ask.isLeave()) {
-            return this._runLeaving(rooms);
+        if (selectedRooms.length && (await this.ask.isLeave())) {
+            return this._runLeaving(selectedRooms);
         }
     }
 
@@ -128,9 +126,10 @@ module.exports = class {
         }
 
         this.logger.log(chalk.green(`\nWe found ${memberRooms.length} with joined member ${userId}\n`));
+        const selectedRooms = await this.ask.selectRooms(memberRooms);
 
-        if (await this.ask.isLeave()) {
-            return this._runLeaving(memberRooms);
+        if (selectedRooms.length && (await this.ask.isLeave())) {
+            return this._runLeaving(selectedRooms);
         }
     }
 
@@ -197,10 +196,61 @@ module.exports = class {
      * Get all available rooms and invite selected user
      * @return {Promise<{userId: string, errors: array, invitedRooms: []}>} result of invite
      */
+    async setPower() {
+        const userId = await this._selectUser();
+
+        if (!userId) {
+            this.logger.log(chalk.yellow('\nNo user is selected\n'));
+            return;
+        }
+
+        const roomsInfo = await this.matrixService.getAllRoomsInfo();
+        const strategy = await this.ask.selectStrategy();
+        const userMemberRooms = roomsInfo[strategy].filter(room => room.members.includes(formatName(userId)));
+        if (userMemberRooms.length === 0) {
+            this.logger.log(chalk.yellow(`\nIn group ${strategy} no rooms with ${userId} found\n`));
+            return;
+        }
+        const poweredRooms = await this.ask.selectRooms(userMemberRooms);
+        if (poweredRooms.length === 0) {
+            this.logger.log(chalk.yellow(`\nIn group ${strategy} no rooms found\n`));
+            return;
+        }
+
+        const iter = async rooms => {
+            const res = await this.matrixService.setPower(rooms, userId);
+            const { poweredRooms, errPoweredRooms, errors } = res;
+            const isSave = await this.ask.isSaveLeavedToFile();
+
+            poweredRooms.length &&
+                this.logger.log(chalk.green(`\nYou have set power to ${poweredRooms.length} rooms!!!\n`));
+
+            errPoweredRooms.length &&
+                this.logger.log(chalk.green(`\nYou couldn't set power to ${errPoweredRooms.length} rooms!!!\n`));
+
+            errors.length && (await this.ask.isShowErrors()) && this.logger.error(errors);
+
+            if (isSave) {
+                const pathToFile = await this.matrixService.saveToJson(poweredRooms, 'powered');
+                this.logger.log(chalk.blue('\nPath to file: '), chalk.yellow(pathToFile));
+            }
+
+            return errPoweredRooms.length && (await this.ask.tryAgainForErrors()) ? iter(errPoweredRooms) : res;
+        };
+
+        if (await this.ask.isPowered()) {
+            return iter(poweredRooms);
+        }
+    }
+
+    /**
+     * Get all available rooms and invite selected user
+     * @return {Promise<{userId: string, errors: array, invitedRooms: []}>} result of invite
+     */
     async invite() {
         const rooms = await this.matrixService.getAllRoomsInfo();
         const strategy = await this.ask.selectStrategy();
-        const inviteRooms = await this.ask.selectRoomsToInvite(rooms[strategy]);
+        const inviteRooms = await this.ask.selectRooms(rooms[strategy]);
         if (inviteRooms.length === 0) {
             this.logger.log(chalk.yellow(`\nIn group ${strategy} no rooms found\n`));
             return;
@@ -250,9 +300,7 @@ module.exports = class {
     async send(room, optionalMessage) {
         const { allRooms } = await this.matrixService.getAllRoomsInfo();
 
-        const rooms = room
-            ? await this.matrixService.getRoomByName(room)
-            : await this.ask.selectRoomsToInvite(allRooms);
+        const rooms = room ? await this.matrixService.getRoomByName(room) : await this.ask.selectRooms(allRooms);
 
         if (rooms.length === 0) {
             this.logger.warn('No room selected!');

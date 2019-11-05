@@ -21,6 +21,17 @@ const options = () =>
             name: 'password',
             message: chalk.blueBright('What is your password?'),
         },
+        {
+            type: 'input',
+            name: 'eventsCount',
+            message: chalk.blueBright('Input events count for syncing'),
+            initial: 50,
+            validate(num) {
+                const eventsCount = Number(num);
+                return eventsCount && typeof Number(num) === 'number';
+            },
+            result: eventsCount => Number(eventsCount),
+        },
     ]);
 
 const limitMonths = async initial => {
@@ -73,8 +84,9 @@ const isShowVisibles = boolPrompt(
     'Do you want to invite anybody to your known rooms? You will see list of available rooms',
 );
 const isInvite = boolPrompt('Do you really want to invite to ALL selected rooms???');
+const isPowered = boolPrompt('Do you really want to power user in ALL rooms you are selected???');
 const isJoin = boolPrompt('Do you really want to join to ALL rooms you are invited???');
-const tryAgainForErrors = boolPrompt('Do you really want to try to join failed rooms???');
+const tryAgainForErrors = boolPrompt('Do you really want to do this command again for    failed rooms???');
 const isSend = async message => await boolPrompt(`Do you really want to send ${message} to ALL selected rooms???`)();
 
 const selectUser = async users => {
@@ -110,11 +122,11 @@ const selectStrategy = async () => {
     return prompt.run();
 };
 
-const selectRoomsToInvite = async rooms => {
+const selectRooms = async rooms => {
     const preparedRooms = rooms.map(({ roomName }) => ({ name: roomName, message: roomName }));
     const prompt = new MultiSelect({
         name: 'rooms',
-        message: chalk.blueBright('Do you want to invite anybody to your known rooms?'),
+        message: chalk.blueBright('Select rooms'),
         hint: chalk.blueBright('(Use <space> to select, <return> to submit)'),
         sort: true,
         choices: [
@@ -210,7 +222,7 @@ module.exports = {
     isShowVisibles,
     isInvite,
     selectUser,
-    selectRoomsToInvite,
+    selectRooms,
     selectAction,
     inputMessage,
     isSend,
@@ -220,4 +232,5 @@ module.exports = {
     inputOne,
     isJoin,
     tryAgainForErrors,
+    isPowered,
 };

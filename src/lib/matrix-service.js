@@ -26,7 +26,17 @@ module.exports = class {
     /**
      * @param {object} sdk sdk client
      */
-    constructor({ sdk, domain, userName, password, sliceAmount, delayTime, fs = fileSystem, logger = console }) {
+    constructor({
+        sdk,
+        domain,
+        userName,
+        password,
+        sliceAmount,
+        delayTime,
+        fs = fileSystem,
+        logger = console,
+        eventsCount,
+    }) {
         this.logger = logger;
         this.sdk = sdk || matrixSdk;
         this.userName = userName;
@@ -37,6 +47,7 @@ module.exports = class {
         this.sliceAmount = sliceAmount || SLICE_AMOUNT;
         this.delayTime = delayTime || 500;
         this.fs = fs;
+        this.eventsCount = eventsCount;
     }
 
     /**
@@ -113,9 +124,8 @@ module.exports = class {
             {
                 title: spinSyncText,
                 task: async ctx => {
-                    // await ctx.matrixClient.startClient({ initialSyncLimit: 1 });
                     await ctx.matrixClient.startClient({
-                        initialSyncLimit: 1,
+                        initialSyncLimit: this.eventsCount,
                         disablePresence: true,
                     });
                     const readyClient = await this._getReadyClient(ctx.matrixClient);
@@ -193,6 +203,79 @@ module.exports = class {
     }
 
     /**
+     *
+     * @param {string} roomId matrix roomId
+     * @param {string} userId matrix userId
+     * @param {number} level level, by default is 100
+     */
+    async setPowerLevel(roomId, userId, level = 100) {
+        const client = this.client || (await this.getClient());
+
+        const content = await client.getStateEvent(roomId, 'm.room.power_levels', '');
+        const event = {
+            getType: () => 'm.room.power_levels',
+            getContent: () => content,
+        };
+
+        await client.setPowerLevel(roomId, userId, level, event);
+        return true;
+    }
+
+    /**
+     * @param {{ roomId: string, roomName: string }[]} rooms matrix rooms from getRooms
+     * @param {string} matrixUserId matrix user
+     * @param {string?} level level to update
+     * @return {Promise<{poweredRooms: { roomId: string, roomName: string }[], errPoweredRooms: { roomId: string, roomName: string }[], errors: object[]}>} errors and powered rooms
+     */
+    async setPower(rooms, matrixUserId, level) {
+        const poweredRooms = [];
+        const errPoweredRooms = [];
+
+        const iter = async (rooms = [], errors = []) => {
+            if (!rooms.length) {
+                return { errors, poweredRooms, errPoweredRooms };
+            }
+
+            // eslint-disable-next-line
+            console.clear();
+            this.logger.log(`Powered: ${chalk.green(poweredRooms.length)} Left: ${chalk.yellow(rooms.length)}`);
+            const roomsToHandle = rooms.slice(0, this.sliceAmount);
+            const restRooms = rooms.slice(this.sliceAmount);
+            try {
+                const preparedTasks = roomsToHandle.map(({ roomId, roomName }) => {
+                    const title = `Powering room ${chalk.cyan(roomName)} for user ${chalk.cyan(matrixUserId)}`;
+                    const task = async () => {
+                        try {
+                            await delay(this.delayTime);
+                            await this.setPowerLevel(roomId, matrixUserId, level);
+                            poweredRooms.push({ roomId, roomName });
+                        } catch (error) {
+                            errPoweredRooms.push({ roomId, roomName });
+                            throw error;
+                        }
+                    };
+
+                    return {
+                        title,
+                        task,
+                    };
+                });
+                const tasks = new Listr(preparedTasks, {
+                    exitOnError: false,
+                });
+
+                await tasks.run();
+
+                return iter(restRooms, errors);
+            } catch (err) {
+                return iter(restRooms, [...errors, ...err.errors]);
+            }
+        };
+
+        return iter(rooms);
+    }
+
+    /**
      * @return {Promise<array>} matrix rooms
      */
     async noMessagesEmptyRooms() {
@@ -230,7 +313,11 @@ module.exports = class {
 
             // eslint-disable-next-line
             console.clear();
-            this.logger.log(`Complited: ${chalk.green(leavedRooms.length)} Left: ${chalk.yellow(rooms.length)}`);
+            this.logger.log(
+                `Left: ${chalk.yellow(rooms.length)} Complited: ${chalk.green(leavedRooms.length)} Error: ${chalk.red(
+                    errLeavedRooms.length,
+                )}`,
+            );
             const roomsToHandle = rooms.slice(0, this.sliceAmount);
             const restRooms = rooms.slice(this.sliceAmount);
             try {
