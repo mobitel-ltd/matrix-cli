@@ -32,6 +32,7 @@ const getEvent = (period, bot) => () => {
                     `@${ignoreUserName2}:matrix.${fakeDomain}`,
                 ]),
         ),
+        getContent: stub().resolves({}),
     });
 
     return eventsStub;

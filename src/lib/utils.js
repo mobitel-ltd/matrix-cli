@@ -7,7 +7,11 @@ require('dotenv').config({ path });
 const protocol = 'https';
 const matrixHost = 'matrix';
 
+const messageEventType = 'm.room.message';
+
 const stopAction = 'stop';
+
+const commands = ['!help', '!invite', '!spec', '!move', '!prio', '!assign'];
 
 const utils = {
     formatName: name => name.split(':')[0].slice(1),
@@ -15,7 +19,7 @@ const utils = {
     actions: {
         'Get info about rooms (all rooms, single rooms and other)': 'getRoomsInfo',
         'Leave rooms by special date of the last real user (not bot) event': 'leaveByDate',
-        'Levae empty rooms with no messages from real user (for bot managment only)': 'leaveEmpty',
+        'Leave empty rooms with no messages from real user (for bot managment only)': 'leaveEmpty',
         'Leave by room member': 'leaveByMember',
         'Get room id by room alias in your matrix domain if it is exists': 'getIdByAlias',
         'Invite user to some special rooms': 'invite',
@@ -83,6 +87,10 @@ const utils = {
         return { min, sec };
     },
 
+    isCommandMessage: msg => msg && commands.some(item => msg.includes(item)),
+
+    isMessageEvent: type => type === messageEventType,
+
     /**
      * Parse matrix room data
      * @param {Room} room matrix room
@@ -99,11 +107,16 @@ const utils = {
                 const author = utils.formatName(event.getSender());
                 const type = event.getType();
                 const date = event.getDate();
+                const content = utils.isMessageEvent(type) && event.getContent();
+                const body = content.msgtype === 'm.text' && content.body;
 
-                return { author, type, date };
+                return { author, type, date, body };
             })
-            .filter(({ author, type }) => type === 'm.room.message' && !utils.ignoreUsers.includes(author))
-            .map(({ type, ...item }) => item);
+            .filter(
+                ({ author, type, body }) =>
+                    utils.isMessageEvent(type) && !utils.ignoreUsers.includes(author) && !utils.isCommandMessage(body),
+            )
+            .map(({ type, body, ...item }) => item);
 
         return {
             project,
