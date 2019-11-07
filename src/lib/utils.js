@@ -1,11 +1,8 @@
-const { last } = require('lodash');
+const { last, pipe, pick } = require('lodash/fp');
 const moment = require('moment');
-const url = require('url');
+
 const path = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
 require('dotenv').config({ path });
-
-const protocol = 'https';
-const matrixHost = 'matrix';
 
 const messageEventType = 'm.room.message';
 
@@ -27,53 +24,23 @@ const utils = {
         'Join to all invited rooms': 'join',
         'Set power level 100 to selected rooms': 'setPower',
         'Stop and exit': stopAction,
+        'Delete room alias': 'deleteAlias',
     },
 
     ignoreUsers: process.env.BOTS ? process.env.BOTS.split(' ') : [],
 
-    SLICE_AMOUNT: 25,
-
     isEnglish: val => /[\w]/.test(val),
 
-    getMatrixHostName: domain => [matrixHost, domain].join('.'),
-
-    parseRoom: ignoreUsers => ({ roomId, name: roomName, timeline }) => {
-        const lastEvent = ignoreUsers ? utils.getLastRealSenderEvent(timeline, ignoreUsers) : last(timeline);
-        if (!lastEvent) {
-            return;
-        }
-        const timestamp = lastEvent.getTs();
-        const date = lastEvent.getDate();
-
-        return { roomName, roomId, timestamp, date };
-    },
-
     isStopAction: action => action === stopAction,
-
-    getOutdatedRooms: limit => ({ timestamp }) => timestamp < utils.getLimitTimestamp(limit),
 
     getActions: () => Object.keys(utils.actions),
 
     getMethod: action => utils.actions[action],
 
-    getBaseUrl: domain => url.format({ protocol, hostname: utils.getMatrixHostName(domain) }),
-
-    getUserId: (userName, domain) => `@${userName}:${utils.getMatrixHostName(domain)}`,
-
-    getMatrixAlias: (partAlias, domain) => `#${partAlias}:${utils.getMatrixHostName(domain)}`,
-
-    getRoomsLastUpdate: (rooms, limit, ignoreUsers) =>
+    getOutdatedRooms: (rooms, limit, ignoreUsers) =>
         rooms
-            .map(utils.parseRoom(ignoreUsers))
-            .filter(Boolean)
-            .filter(utils.getOutdatedRooms(limit))
-            .sort((el1, el2) => el2.timestamp - el1.timestamp),
-
-    getLastRealSenderEvent: (events, ignoreUsers) =>
-        events.reverse().find(ev => !(ignoreUsers || []).some(user => ev.getSender().includes(user))),
-
-    getRealSenderMessages: (events, userId) =>
-        events.reverse().find(ev => ev.getSender() !== userId && ev.getType() === 'm.room.message'),
+            .filter(room => room.lastMessageDate.timestamp < utils.getLimitTimestamp(limit))
+            .sort((el1, el2) => el2.lastMessageDate.timestamp - el1.lastMessageDate.timestamp),
 
     getLimitTimestamp: limit =>
         moment()
@@ -102,28 +69,35 @@ const utils = {
         const [issueName] = room.name.split(' ');
         const project = issueName.includes('-') ? issueName.split('-')[0] : 'custom project';
         const members = room.getJoinedMembers().map(item => utils.formatName(item.userId));
-        const messages = room.timeline
+        const allMessages = room.timeline
             .map(event => {
                 const author = utils.formatName(event.getSender());
                 const type = event.getType();
                 const date = event.getDate();
+                const timestamp = event.getTs();
                 const content = utils.isMessageEvent(type) && event.getContent();
                 const body = content.msgtype === 'm.text' && content.body;
 
-                return { author, type, date, body };
+                return { author, type, date, body, timestamp };
             })
-            .filter(
-                ({ author, type, body }) =>
-                    utils.isMessageEvent(type) && !utils.ignoreUsers.includes(author) && !utils.isCommandMessage(body),
-            )
-            .map(({ type, body, ...item }) => item);
+            .filter(({ type }) => utils.isMessageEvent(type));
+
+        const realUsersNotCommandMessages = allMessages
+            .filter(({ author, body }) => !utils.ignoreUsers.includes(author) && !utils.isCommandMessage(body))
+            .map(({ author, date }) => ({ author, date }));
+
+        const lastMessageDate = pipe(
+            last,
+            pick(['date', 'timestamp']),
+        )(allMessages);
 
         return {
             project,
             roomId,
             roomName,
             members,
-            messages,
+            lastMessageDate,
+            messages: realUsersNotCommandMessages,
         };
     },
 };

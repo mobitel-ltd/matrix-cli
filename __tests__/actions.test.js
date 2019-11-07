@@ -99,7 +99,7 @@ describe('Testing actions for bin', () => {
             askMock.inputOne.resolves(userToInvite);
             const res = await actions.invite();
             expect(res).toEqual({
-                invitedUser: matrixServiceMock.getMatrixFormatUserId(userToInvite),
+                invitedUser: matrixServiceMock.getUserId(userToInvite),
                 invitedRooms: allRooms.map(({ roomId, name }) => ({ roomId, roomName: name })),
                 errInvitedRooms: [],
                 errors: [],
@@ -117,7 +117,7 @@ describe('Testing actions for bin', () => {
             askMock.inputOne.resolves(userToInvite);
             const res = await actions.invite();
             expect(res).toEqual({
-                invitedUser: matrixServiceMock.getMatrixFormatUserId(userToInvite),
+                invitedUser: matrixServiceMock.getUserId(userToInvite),
                 invitedRooms: manyMembersNoMessages.map(({ roomId, name }) => ({ roomId, roomName: name })),
                 errInvitedRooms: [],
                 errors: [],

@@ -2,16 +2,8 @@
 
 const fileSystem = require('fs').promises;
 const matrixSdk = require('matrix-js-sdk');
-const {
-    getParsedRooms,
-    getMatrixAlias,
-    getBaseUrl,
-    getUserId,
-    getRoomsLastUpdate,
-    isEnglish,
-    SLICE_AMOUNT,
-    timing,
-} = require('./utils');
+const url = require('url');
+const { getParsedRooms, isEnglish, timing, getOutdatedRooms } = require('./utils');
 const Listr = require('listr');
 const chalk = require('chalk');
 const delay = require('delay');
@@ -31,23 +23,34 @@ module.exports = class {
         domain,
         userName,
         password,
-        sliceAmount,
+        sliceAmount = 25,
         delayTime,
         fs = fileSystem,
         logger = console,
         eventsCount,
     }) {
+        this.protocol = 'https';
+        this.matrixHost = 'matrix';
         this.logger = logger;
         this.sdk = sdk || matrixSdk;
         this.userName = userName;
         this.domain = domain;
-        this.matrixUserId = getUserId(userName, domain);
         this.password = password;
         this.client;
-        this.sliceAmount = sliceAmount || SLICE_AMOUNT;
+        this.sliceAmount = sliceAmount;
         this.delayTime = delayTime || 500;
         this.fs = fs;
         this.eventsCount = eventsCount;
+        this.matrixHostName = [this.matrixHost, this.domain].join('.');
+        this.matrixUserId = this.getUserId(userName);
+    }
+
+    /**
+     * @param {string} userName user name
+     * @return {string} matrix format user id
+     */
+    getUserId(userName) {
+        return `@${userName}:${this.matrixHostName}`;
     }
 
     /**
@@ -65,11 +68,11 @@ module.exports = class {
     }
 
     /**
-     *
+     * Make user auto join when started
      */
     _shouldJoin() {
         this.client.on('RoomMember.membership', async (event, member) => {
-            if (member.membership === 'invite' && member.userId === this.getMatrixFormatUserId(this.userName)) {
+            if (member.membership === 'invite' && member.userId === this.getUserId(this.userName)) {
                 try {
                     await this.client.joinRoom(member.roomId);
                     this.logger.info(`${this.userId} joined to room with id = ${member.roomId}`);
@@ -94,14 +97,6 @@ module.exports = class {
     }
 
     /**
-     * @param {string} name user name
-     * @return {string} matrix format user id
-     */
-    getMatrixFormatUserId(name) {
-        return getUserId(name, this.domain);
-    }
-
-    /**
      * Get matrix sync client
      */
     async getClient() {
@@ -109,8 +104,8 @@ module.exports = class {
             {
                 title: spinLoginText,
                 task: async ctx => {
-                    const baseUrl = getBaseUrl(this.domain);
-                    const userId = this.getMatrixFormatUserId(this.userName);
+                    const baseUrl = url.format({ protocol: this.protocol, hostname: this.matrixHostName });
+                    const userId = this.getUserId(this.userName);
                     const client = this.sdk.createClient(baseUrl);
                     const { access_token: accessToken } = await client.loginWithPassword(userId, this.password);
                     const matrixClient = this.sdk.createClient({
@@ -145,12 +140,21 @@ module.exports = class {
     }
 
     /**
-     * @param {Object} room matrix room
+     * @typedef {Object} Room
+     * @property {string} project
+     * @property {string} roomId
+     * @property {string} roomName
+     * @property {string[]} members
+     * @property {{author: string, date: string}[]} message
+     * @property {{date: Object, timestamp: number}} lastMessageDate
+     */
+
+    /**
+     * @param {Room} room matrix room
      * @return {Boolean} return true if room is chat
      */
     _isChat(room) {
-        const allMembers = room.getJoinedMembers();
-        return allMembers.length < 3 && !isEnglish(room.name);
+        return room.members.length < 3 && !isEnglish(room.roomName);
     }
 
     /**
@@ -158,15 +162,6 @@ module.exports = class {
      * @return {Boolean} is only user in romm
      */
     async _isSingle(room) {}
-
-    /**
-     * @typedef {Object} Room
-     * @property {string} project
-     * @property {string} roomId
-     * @property {string} roomName
-     * @property {string[]} members
-     * @property {{author: string, date: string}[]} message
-     */
 
     /**
      * @return {Promise<{allRooms: Room[], singleRoomsManyMessages: Room[], singleRoomsNoMessages: Room[], manyMembersNoMessages: Room[], manyMembersManyMessages: Room[]}>} matrix rooms
@@ -290,11 +285,10 @@ module.exports = class {
      */
     async getRooms(limit, users = []) {
         const ignoreUsers = typeof users === 'string' ? [users] : users;
-        const matrixClient = this.client || (await this.getClient());
-        const rooms = await matrixClient.getRooms();
-        const filteredRooms = rooms.filter(room => !this._isChat(room));
+        const { allRooms } = await this.getAllRoomsInfo();
+        const groupRooms = allRooms.filter(room => !this._isChat(room));
 
-        return getRoomsLastUpdate(filteredRooms, limit, ignoreUsers);
+        return getOutdatedRooms(groupRooms, limit, ignoreUsers);
     }
 
     /**
@@ -361,7 +355,7 @@ module.exports = class {
     async getRoomByAlias(name) {
         const matrixClient = this.client || (await this.getClient());
         try {
-            const alias = getMatrixAlias(name, this.domain);
+            const alias = this._getMatrixAlias(name);
             const { room_id: roomId } = await matrixClient.getRoomIdForAlias(alias);
 
             return roomId;
@@ -494,7 +488,7 @@ module.exports = class {
      */
     async getUser(name) {
         const client = this.client || (await this.getClient());
-        const userId = getUserId(name, this.domain);
+        const userId = this.getUserId(name);
 
         return userId && client.getUser(userId);
     }
@@ -539,5 +533,23 @@ module.exports = class {
      */
     stop() {
         this.client && this.client.stopClient();
+    }
+
+    /**
+     * Get matrix style alias
+     * @param {string} name matrix alias
+     * @return {string} matrix alias
+     */
+    _getMatrixAlias(name) {
+        return `#${name}:${this.matrixHostName}`;
+    }
+
+    /**
+     * Delete matrix room alias
+     * @param {string} name
+     */
+    async deleteAlias(name) {
+        const alias = this._getMatrixAlias(name);
+        await this.client.deleteAlias(alias);
     }
 };

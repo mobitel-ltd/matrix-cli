@@ -76,7 +76,8 @@ module.exports = class {
         const infoRoomMsg = `\nWe found ${rooms.length} rooms where last activity ${ignoreMsg}was ${limit} months ago\n`;
         this.logger.log(chalk.green(infoRoomMsg));
 
-        (await this.ask.isShowRooms()) && rooms.map(this._printRoomDate.bind(this));
+        (await this.ask.isShowRooms()) &&
+            rooms.map(room => this._printRoomDate({ roomName: room.roomName, date: room.lastMessageDate.date }));
 
         if (await this.ask.isLeave()) {
             return this._runLeaving(rooms);
@@ -184,7 +185,7 @@ module.exports = class {
             print: async () => {
                 const user = await this.ask.inputOne();
 
-                return user && this.matrixService.getMatrixFormatUserId(user);
+                return user && this.matrixService.getUserId(user);
             },
         };
         const userStrategy = await this.ask.selectUserStrategy();
@@ -334,5 +335,25 @@ module.exports = class {
         this.logger.log(chalk.blue(`\nMatrix id for room with alias ${alias} is ${msg}\n`));
 
         return roomId;
+    }
+
+    /**
+     * Delete analias form matrix
+     */
+    async deleteAlias() {
+        const aliasPart = await this.ask.inputRoomAlias();
+        if (!aliasPart) {
+            return;
+        }
+
+        const roomId = await this.matrixService.getRoomByAlias(aliasPart);
+        const msg = roomId ? roomId : `not found`;
+        this.logger.log(chalk.blue(`\nMatrix id for room with alias ${aliasPart} is ${msg}\n`));
+
+        if (roomId) {
+            await this.matrixService.deleteAlias(aliasPart);
+
+            return roomId;
+        }
     }
 };

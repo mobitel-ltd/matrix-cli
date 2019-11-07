@@ -56,6 +56,7 @@ const getRoom = (period, bot) => () => {
     const roomStub = createStubInstance(Room, {
         getJoinedMembers: stub().returns(getMembers(bot)),
     });
+
     return {
         ...roomStub,
         roomId: fake.random.uuid(),
