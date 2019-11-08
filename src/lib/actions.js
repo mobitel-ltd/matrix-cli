@@ -63,16 +63,17 @@ module.exports = class {
      */
     async leaveByDate() {
         const limit = await this.ask.limitMonths(DEFAULT_LIMIT);
-        const ignoreUsers = await this.ask.inputUsers();
 
-        const rooms = await this.matrixService.getRooms(limit, ignoreUsers);
+        const rooms = await this.matrixService.getRooms(limit);
 
         if (!rooms.length) {
             this.logger.log(chalk.yellow("You don't have any room to leave"));
             return;
         }
 
-        const ignoreMsg = ignoreUsers.length ? `of users (${ignoreUsers.join(', ')}) ` : '';
+        const ignoreMsg = this.matrixService.ignoreUsers.length
+            ? `of users (${this.matrixService.ignoreUsers.join(', ')}) `
+            : '';
         const infoRoomMsg = `\nWe found ${rooms.length} rooms where last activity ${ignoreMsg}was ${limit} months ago\n`;
         this.logger.log(chalk.green(infoRoomMsg));
 
@@ -289,6 +290,11 @@ module.exports = class {
         Object.entries(info).map(([key, rooms]) => {
             this.logger.log(chalk.blue('\n' + key + ' is ' + rooms.length));
         });
+        const isSave = await this.ask.isSaveLeavedToFile();
+        if (isSave) {
+            const pathToFile = await this.matrixService.saveToJson(info, 'info');
+            this.logger.log(chalk.blue('\nPath to file: '), chalk.yellow(pathToFile));
+        }
 
         return info;
     }

@@ -1,4 +1,4 @@
-const { random } = require('faker');
+const { random, name } = require('faker');
 const { getParsedRooms } = require('../src/lib/utils');
 const ask = require('../src/lib/questions');
 const MatrixService = require('../src/lib/matrix-service');
@@ -6,27 +6,35 @@ const Actions = require('../src/lib/actions');
 const {
     sdkStub,
     correctLength,
-    allRooms,
     createMatrixClientStub,
-    // users,
     existedAlias,
     roomId,
     fakeDomain,
-    manyMembersNoMessages,
-    manyMembersManyMessages,
     existsMember,
     mainUserName,
 } = require('./fixtures/fake-sdk');
 const { stub, assert } = require('sinon');
 
 describe('Testing actions for bin', () => {
-    jest.setTimeout(30000);
+    // jest.setTimeout(5000);
     const message = random.words;
 
     /**  @type {Actions} action */
+    const ignoreUsers = [name.firstName(), name.firstName()];
+
     let actions;
     let matrixServiceMock;
-    let matrixClientStub;
+    const stubMatrixData = createMatrixClientStub(ignoreUsers);
+    const matrixClientStub = stubMatrixData.matrixClientStub;
+    const allRooms = stubMatrixData.allRooms;
+    const manyMembersNoMessages = stubMatrixData.manyMembersNoMessages;
+    const manyMembersManyMessages = stubMatrixData.manyMembersManyMessages;
+
+    const allRoomsWithMember = allRooms
+        .map(getParsedRooms(ignoreUsers))
+        .filter(({ members }) => members.includes(existsMember))
+        .map(({ roomId, roomName }) => ({ roomId, roomName }));
+
     const userToInvite = 'some_user';
     const askMock = stub(ask);
 
@@ -35,8 +43,7 @@ describe('Testing actions for bin', () => {
         askMock.inputUsers.resolves([]);
         askMock.isShowRooms.resolves(true);
         askMock.isInvite.resolves(true);
-        // leave on first call throw error
-        matrixClientStub = createMatrixClientStub();
+
         const options = {
             domain: fakeDomain,
             userName: mainUserName,
@@ -44,6 +51,7 @@ describe('Testing actions for bin', () => {
             sdk: sdkStub(matrixClientStub),
             sliceAmount: 2,
             delayTime: 5,
+            ignoreUsers,
         };
 
         matrixServiceMock = new MatrixService(options);
@@ -52,6 +60,7 @@ describe('Testing actions for bin', () => {
 
     afterEach(() => {
         Object.values(askMock).map(el => el.reset());
+        matrixClientStub.leave.resetHistory();
     });
 
     describe('Test leaveByDate', () => {
@@ -87,6 +96,7 @@ describe('Testing actions for bin', () => {
         it('Expect invite user returns undefined if no room is choosen', async () => {
             askMock.selectRooms.resolves([]);
             const res = await actions.invite();
+
             expect(res).toBeUndefined();
         });
 
@@ -156,11 +166,11 @@ describe('Testing actions for bin', () => {
         it('Expect get rooms info returns grouped data', async () => {
             const res = await actions.getRoomsInfo();
             expect(res).toEqual({
-                allRooms: allRooms.map(getParsedRooms),
+                allRooms: allRooms.map(getParsedRooms(ignoreUsers)),
                 singleRoomsManyMessages: [],
                 singleRoomsNoMessages: [],
-                manyMembersNoMessages: manyMembersNoMessages.map(getParsedRooms),
-                manyMembersManyMessages: manyMembersManyMessages.map(getParsedRooms),
+                manyMembersNoMessages: manyMembersNoMessages.map(getParsedRooms(ignoreUsers)),
+                manyMembersManyMessages: manyMembersManyMessages.map(getParsedRooms(ignoreUsers)),
             });
         });
     });
@@ -180,11 +190,6 @@ describe('Testing actions for bin', () => {
     });
 
     describe('Test leaveByMember', () => {
-        const allRoomsWithMember = allRooms
-            .map(getParsedRooms)
-            .filter(({ members }) => members.includes(existsMember))
-            .map(({ roomId, roomName }) => ({ roomId, roomName }));
-
         beforeEach(() => {
             askMock.selectUserStrategy.resolves('print');
         });

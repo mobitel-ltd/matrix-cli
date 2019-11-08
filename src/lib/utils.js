@@ -1,9 +1,6 @@
 const { last, pipe, pick } = require('lodash/fp');
 const moment = require('moment');
 
-const path = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
-require('dotenv').config({ path });
-
 const messageEventType = 'm.room.message';
 
 const stopAction = 'stop';
@@ -26,8 +23,6 @@ const utils = {
         'Stop and exit': stopAction,
         'Delete room alias': 'deleteAlias',
     },
-
-    ignoreUsers: process.env.BOTS ? process.env.BOTS.split(' ') : [],
 
     isEnglish: val => /[\w]/.test(val),
 
@@ -60,10 +55,11 @@ const utils = {
 
     /**
      * Parse matrix room data
+     * @param {string[]} ignoreUsers ignore users
      * @param {Room} room matrix room
      * @return {{project: string, roomId: string, roomName: string, members: string[], messages: {author: string, date: string}[]}} parsed rooms
      */
-    getParsedRooms: room => {
+    getParsedRooms: (ignoreUsers = []) => room => {
         const roomId = room.roomId;
         const roomName = room.name;
         const [issueName] = room.name.split(' ');
@@ -83,7 +79,7 @@ const utils = {
             .filter(({ type }) => utils.isMessageEvent(type));
 
         const realUsersNotCommandMessages = allMessages
-            .filter(({ author, body }) => !utils.ignoreUsers.includes(author) && !utils.isCommandMessage(body))
+            .filter(({ author, body }) => !ignoreUsers.includes(author) && !utils.isCommandMessage(body))
             .map(({ author, date }) => ({ author, date }));
 
         const lastMessageDate = pipe(

@@ -28,6 +28,7 @@ module.exports = class {
         fs = fileSystem,
         logger = console,
         eventsCount,
+        ignoreUsers = [],
     }) {
         this.protocol = 'https';
         this.matrixHost = 'matrix';
@@ -43,6 +44,7 @@ module.exports = class {
         this.eventsCount = eventsCount;
         this.matrixHostName = [this.matrixHost, this.domain].join('.');
         this.matrixUserId = this.getUserId(userName);
+        this.ignoreUsers = ignoreUsers;
     }
 
     /**
@@ -169,7 +171,7 @@ module.exports = class {
     async getAllRoomsInfo() {
         const matrixClient = this.client || (await this.getClient());
         const rooms = await matrixClient.getRooms();
-        const parsedRooms = rooms.map(getParsedRooms);
+        const parsedRooms = rooms.map(getParsedRooms(this.ignoreUsers));
 
         const singleRoomsNoMessages = parsedRooms.filter(room => {
             return room.members.length === 1 && room.messages.length === 0;
@@ -283,12 +285,11 @@ module.exports = class {
      * @param {number|undefined} limit timestamp limit date
      * @param {array|string|undefined} users users to ignore in events
      */
-    async getRooms(limit, users = []) {
-        const ignoreUsers = typeof users === 'string' ? [users] : users;
+    async getRooms(limit) {
         const { allRooms } = await this.getAllRoomsInfo();
         const groupRooms = allRooms.filter(room => !this._isChat(room));
 
-        return getOutdatedRooms(groupRooms, limit, ignoreUsers);
+        return getOutdatedRooms(groupRooms, limit, this.ignoreUsers);
     }
 
     /**
@@ -392,6 +393,11 @@ module.exports = class {
 
             // eslint-disable-next-line
             console.clear();
+            this.logger.log(
+                `Left: ${chalk.yellow(rooms.length)} Complited: ${chalk.green(invitedRooms.length)} Error: ${chalk.red(
+                    errInvitedRooms.length,
+                )}`,
+            );
             const roomsToHandle = rooms.slice(0, this.sliceAmount);
             const restRooms = rooms.slice(this.sliceAmount);
             try {

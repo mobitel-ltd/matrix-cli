@@ -19,7 +19,7 @@ const select = async (service, actions = new Actions(service, ask)) => {
 
 const run = async () => {
     try {
-        const options = await ask.options();
+        const options = await ask.initialOptions();
 
         const service = new Service(options);
         await service.getClient();

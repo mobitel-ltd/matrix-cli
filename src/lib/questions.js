@@ -4,7 +4,7 @@ const utils = require('./utils');
 
 const enable = (choices, fn) => choices.forEach(ch => (ch.enabled = fn(ch)));
 
-const options = () =>
+const initialOptions = () =>
     prompt([
         {
             type: 'input',
@@ -31,6 +31,17 @@ const options = () =>
                 return eventsCount && typeof Number(num) === 'number';
             },
             result: eventsCount => Number(eventsCount),
+        },
+        {
+            type: 'input',
+            name: 'ignoreUsers',
+            message: chalk.blueBright('Input bot users with trailing comma'),
+            initial: 'jira_bot',
+            result: data =>
+                data
+                    .split(',')
+                    .map(el => el.trim())
+                    .map(el => el.toLowerCase()),
         },
     ]);
 
@@ -78,7 +89,7 @@ const boolPrompt = question => async () => {
 
 const isShowRooms = boolPrompt('Show all rooms which you want to leave?');
 const isLeave = boolPrompt('Do you really want to leave???');
-const isSaveLeavedToFile = boolPrompt('Do you need to save leaved rooms to a file???');
+const isSaveLeavedToFile = boolPrompt('Do you need to save getting rooms to a file???');
 const isShowErrors = boolPrompt('Show all errors?');
 const isShowVisibles = boolPrompt(
     'Do you want to invite anybody to your known rooms? You will see list of available rooms',
@@ -216,7 +227,7 @@ module.exports = {
     isShowErrors,
     isLeave,
     isShowRooms,
-    options,
+    initialOptions,
     limitMonths,
     inputUsers,
     isShowVisibles,

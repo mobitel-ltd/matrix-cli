@@ -1,17 +1,14 @@
 const moment = require('moment');
 const Chance = require('chance');
 const fake = require('faker');
-const delay = require('delay');
 const { stub, createStubInstance } = require('sinon');
 const { MatrixClient, MatrixEvent, Room } = require('matrix-js-sdk');
-const { ignoreUsers } = require('../../src/lib/utils');
 
 const chance = new Chance();
 const fakeDomain = fake.random.word();
 const mainUserName = fake.random.word();
 
 const accessToken = 'accessToken';
-const botId = fake.random.arrayElement(ignoreUsers);
 
 const ignoreUserName1 = 'some_user1';
 const ignoreUserName2 = 'some_user2';
@@ -69,21 +66,8 @@ const createRooms = (length, period, bot) => Array.from({ length }, getRoom(peri
 const endDate = moment().subtract(limit, 'months');
 const startDate = '2017-01-01';
 
-const oldRooms = createRooms(correctLength, [startDate, endDate.subtract(1, 'day').format('YYYY-MM-DD')]);
-const newRooms = createRooms(correctLength, [
-    endDate.add(1, 'day').format('YYYY-MM-DD'),
-    moment().format('YYYY-MM-DD'),
-]);
-const manyMembersNoMessages = createRooms(
-    correctLength,
-    [endDate.add(1, 'day').format('YYYY-MM-DD'), moment().format('YYYY-MM-DD')],
-    `@${botId}:${fakeDomain}`,
-);
-const manyMembersManyMessages = [...oldRooms, ...newRooms];
 const loginWithPassword = stub().resolves({ access_token: accessToken });
 // const leaveStub = stub().rejects(new Error());
-
-const allRooms = [...manyMembersManyMessages, ...manyMembersNoMessages];
 
 const getFakeUser = () => ({
     userId: chance.word({ length: 2 }) + '_' + fake.name.firstName(),
@@ -104,17 +88,28 @@ const users = Array.from({ length: 30 }, getFakeUser);
 const existedAlias = fake.random.word();
 
 const roomId = fake.random.uuid();
-const createMatrixClientStub = () => {
+const createMatrixClientStub = ignoreUsers => {
+    const botId = fake.random.arrayElement(ignoreUsers);
+
     const matrixClientStub = { ...createStubInstance(MatrixClient) };
+
     matrixClientStub.on.withArgs('sync').yields('SYNCING');
     matrixClientStub.leave.onFirstCall().rejects(new Error());
-    matrixClientStub.leave.callsFake(async () => {
-        await delay(10);
-    });
 
-    matrixClientStub.invite.callsFake(async () => {
-        await delay(10);
-    });
+    const manyMembersNoMessages = createRooms(
+        correctLength,
+        [endDate.add(1, 'day').format('YYYY-MM-DD'), moment().format('YYYY-MM-DD')],
+        `@${botId}:${fakeDomain}`,
+    );
+
+    const oldRooms = createRooms(correctLength, [startDate, endDate.subtract(1, 'day').format('YYYY-MM-DD')]);
+    const newRooms = createRooms(correctLength, [
+        endDate.add(1, 'day').format('YYYY-MM-DD'),
+        moment().format('YYYY-MM-DD'),
+    ]);
+
+    const manyMembersManyMessages = [...oldRooms, ...newRooms];
+    const allRooms = [...manyMembersManyMessages, ...manyMembersNoMessages];
 
     matrixClientStub.getUser.resolves('@user:matrix.example.com');
     matrixClientStub.getRooms = stub().resolves(allRooms);
@@ -122,7 +117,12 @@ const createMatrixClientStub = () => {
     matrixClientStub.getRoomIdForAlias.throws();
     matrixClientStub.getRoomIdForAlias.withArgs(`#${existedAlias}:matrix.${fakeDomain}`).resolves({ room_id: roomId });
 
-    return matrixClientStub;
+    return {
+        matrixClientStub,
+        allRooms,
+        manyMembersNoMessages,
+        manyMembersManyMessages,
+    };
 };
 
 const sdkStub = stubClient => ({
@@ -130,6 +130,7 @@ const sdkStub = stubClient => ({
         if (typeof opts === 'string') {
             return stub().returns({ loginWithPassword })(opts);
         }
+
         return stubClient;
     },
 });
@@ -137,13 +138,10 @@ const sdkStub = stubClient => ({
 module.exports = {
     existsMember,
     users,
-    allRooms,
     createMatrixClientStub,
     correctLength,
     sdkStub,
     roomId,
     existedAlias,
     fakeDomain,
-    manyMembersNoMessages,
-    manyMembersManyMessages,
 };
