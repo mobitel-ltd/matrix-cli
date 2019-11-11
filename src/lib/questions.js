@@ -95,6 +95,7 @@ const isShowVisibles = boolPrompt(
     'Do you want to invite anybody to your known rooms? You will see list of available rooms',
 );
 const isInvite = boolPrompt('Do you really want to invite to ALL selected rooms???');
+const isDeleteAlias = boolPrompt('Do you really want to delete this alias?');
 const isPowered = boolPrompt('Do you really want to power user in ALL rooms you are selected???');
 const isJoin = boolPrompt('Do you really want to join to ALL rooms you are invited???');
 const tryAgainForErrors = boolPrompt('Do you really want to do this command again for    failed rooms???');
@@ -244,4 +245,5 @@ module.exports = {
     isJoin,
     tryAgainForErrors,
     isPowered,
+    isDeleteAlias,
 };

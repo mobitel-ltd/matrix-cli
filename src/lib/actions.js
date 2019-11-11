@@ -353,13 +353,21 @@ module.exports = class {
         }
 
         const roomId = await this.matrixService.getRoomByAlias(aliasPart);
-        const msg = roomId ? roomId : `not found`;
-        this.logger.log(chalk.blue(`\nMatrix id for room with alias ${aliasPart} is ${msg}\n`));
 
         if (roomId) {
-            await this.matrixService.deleteAlias(aliasPart);
+            this.logger.log(chalk.blue(`\nMatrix id for room with alias ${aliasPart} is ${roomId}\n`));
 
-            return roomId;
+            if (await this.ask.isDeleteAlias()) {
+                await this.matrixService.deleteAlias(aliasPart);
+
+                this.logger.log(chalk.green(`\nAlias ${aliasPart} for room ${roomId} is successfully deleted!!!\n`));
+
+                return roomId;
+            }
+
+            return;
         }
+
+        this.logger.log(chalk.yellow(`\nMatrix id for room with alias ${aliasPart} is not found\n`));
     }
 };

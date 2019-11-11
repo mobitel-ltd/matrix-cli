@@ -10,9 +10,9 @@ const mainUserName = fake.random.word();
 
 const accessToken = 'accessToken';
 
-const ignoreUserName1 = 'some_user1';
-const ignoreUserName2 = 'some_user2';
-const existsMember = fake.random.arrayElement([ignoreUserName1, ignoreUserName2]);
+const realUser1 = 'some_user1';
+const realUser2 = 'some_user2';
+const existsMember = fake.random.arrayElement([realUser1, realUser2]);
 
 const limit = 10;
 const correctLength = 10;
@@ -24,10 +24,7 @@ const getEvent = (period, bot) => () => {
         getDate: stub().returns(date),
         getSender: stub().returns(
             bot ||
-                fake.random.arrayElement([
-                    `@${ignoreUserName1}:matrix.${fakeDomain}`,
-                    `@${ignoreUserName2}:matrix.${fakeDomain}`,
-                ]),
+                fake.random.arrayElement([`@${realUser1}:matrix.${fakeDomain}`, `@${realUser2}:matrix.${fakeDomain}`]),
         ),
         getContent: stub().resolves({}),
     });
@@ -39,8 +36,8 @@ const getMembers = bot => {
     const constantlyMember = [
         {
             userId: fake.random.arrayElement([
-                `@${ignoreUserName1}:matrix.${fakeDomain}`,
-                `@${ignoreUserName2}:matrix.${fakeDomain}`,
+                `@${realUser1}:matrix.${fakeDomain}`,
+                `@${realUser2}:matrix.${fakeDomain}`,
             ]),
         },
         { userId: `@${mainUserName}:matrix.${fakeDomain}` },

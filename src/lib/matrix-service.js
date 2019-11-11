@@ -438,7 +438,7 @@ module.exports = class {
 
     /**
      *
-     * @param {array} allRooms matrix rooms to join
+     * @param {Room[]} allRooms matrix rooms to join
      * @return {Promise<{joinedRooms: ParsedRoom[], errors: object[], errJoinedRooms: ParsedRoom[]}>} errors and leaved rooms empty array
      */
     async join(allRooms) {

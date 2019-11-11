@@ -23,7 +23,7 @@ describe('Testing actions for bin', () => {
     const ignoreUsers = [name.firstName(), name.firstName()];
 
     let actions;
-    let matrixServiceMock;
+    let matrixService;
     const stubMatrixData = createMatrixClientStub(ignoreUsers);
     const matrixClientStub = stubMatrixData.matrixClientStub;
     const allRooms = stubMatrixData.allRooms;
@@ -54,8 +54,8 @@ describe('Testing actions for bin', () => {
             ignoreUsers,
         };
 
-        matrixServiceMock = new MatrixService(options);
-        actions = new Actions(matrixServiceMock, askMock);
+        matrixService = new MatrixService(options);
+        actions = new Actions(matrixService, askMock);
     });
 
     afterEach(() => {
@@ -109,7 +109,7 @@ describe('Testing actions for bin', () => {
             askMock.inputOne.resolves(userToInvite);
             const res = await actions.invite();
             expect(res).toEqual({
-                invitedUser: matrixServiceMock.getUserId(userToInvite),
+                invitedUser: matrixService.getUserId(userToInvite),
                 invitedRooms: allRooms.map(({ roomId, name }) => ({ roomId, roomName: name })),
                 errInvitedRooms: [],
                 errors: [],
@@ -127,7 +127,7 @@ describe('Testing actions for bin', () => {
             askMock.inputOne.resolves(userToInvite);
             const res = await actions.invite();
             expect(res).toEqual({
-                invitedUser: matrixServiceMock.getUserId(userToInvite),
+                invitedUser: matrixService.getUserId(userToInvite),
                 invitedRooms: manyMembersNoMessages.map(({ roomId, name }) => ({ roomId, roomName: name })),
                 errInvitedRooms: [],
                 errors: [],
