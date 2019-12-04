@@ -1,5 +1,5 @@
 [![Maintainability](https://api.codeclimate.com/v1/badges/50893b9daa2a75ec53f6/maintainability)](https://codeclimate.com/github/grigori-gru/matrix-cli/maintainability)
-[![Build Status](https://travis-ci.org/grigori-gru/matrix-cli.svg?branch=master)](https://travis-ci.org/grigori-gru/matrix-cli)
+[![Build Status](https://travis-ci.org/mobitel-ltd/matrix-cli.svg?branch=master)](https://travis-ci.org/mobitel-ltd/matrix-cli)
 
 # Matrix-cli
 
@@ -9,12 +9,13 @@ Console util to work with [Matrix](https://matrix.org/blog/home/)
 
 ```sh
 $ npm i -g matrix-mobitel-cli
+$ matrix-cli
 ```
 
-## Start
+or just run once with npx:
 
 ```sh
-matrix-cli
+$ npx matrix-mobitel-cli
 ```
 
 ## How it works
@@ -36,7 +37,7 @@ If you select this case, you will see info with amount about:
 Input room alias part. For example in `#room_part:matrix.your-domain` you should print `room_part`.
 If room exists in your domain, you will see room id. And if not found info about it.
 
-### Leave
+### Leave by no activity
 
 Select period with no activity.
 From all rooms you get select which you're gonna leave, there is an "all" as parameter.
@@ -46,6 +47,12 @@ Next you can see how you leave it.
 ### Leave empty
 
 If you have rooms where you don't ever have at least one message and only one user inside is you, then it helps you to leave all of them at once.
+You can choose save all of them to a file after leaving, if you choose this after finish.
+
+### Leave all rooms with some user (for example - bot)
+
+Choose person you don't want to be with.
+Next - select rooms where he has been joined too and leave them.
 You can choose save all of them to a file after leaving, if you choose this after finish.
 
 ### Invite
