@@ -79,13 +79,15 @@ module.exports = class {
 
         const selectedRooms = await this.ask.selectRooms(rooms);
 
-        (await this.ask.isShowRooms()) &&
-            selectedRooms.map(room =>
-                this._printRoomDate({ roomName: room.roomName, date: room.lastMessageDate.date }),
-            );
+        if (selectedRooms.length) {
+            (await this.ask.isShowRooms()) &&
+                selectedRooms.map(room =>
+                    this._printRoomDate({ roomName: room.roomName, date: room.lastMessageDate.date }),
+                );
 
-        if (await this.ask.isLeave()) {
-            return this._runLeaving(selectedRooms);
+            if (await this.ask.isLeave()) {
+                return this._runLeaving(selectedRooms);
+            }
         }
     }
 

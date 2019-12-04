@@ -154,7 +154,7 @@ module.exports = class {
      * @return {Boolean} return true if room is chat
      */
     _isChat(room) {
-        return room.members.length < 3 && !isEnglish(room.roomName);
+        return room.members.length === 2 && !isEnglish(room.roomName);
     }
 
     /**
