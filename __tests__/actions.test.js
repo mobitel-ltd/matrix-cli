@@ -64,6 +64,10 @@ describe('Testing actions for bin', () => {
     });
 
     describe('Test leaveByDate', () => {
+        beforeEach(() => {
+            askMock.selectRooms.callsFake(data => Promise.resolve(data));
+        });
+
         it('Expect leaveByDate return undefined if invite is not agree', async () => {
             expect(await actions.leaveByDate()).toBeUndefined();
         });

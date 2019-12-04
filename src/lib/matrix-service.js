@@ -1,5 +1,3 @@
-// @ts-check
-
 const fileSystem = require('fs').promises;
 const matrixSdk = require('matrix-js-sdk');
 const url = require('url');

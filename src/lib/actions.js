@@ -77,11 +77,15 @@ module.exports = class {
         const infoRoomMsg = `\nWe found ${rooms.length} rooms where last activity ${ignoreMsg}was ${limit} months ago\n`;
         this.logger.log(chalk.green(infoRoomMsg));
 
+        const selectedRooms = await this.ask.selectRooms(rooms);
+
         (await this.ask.isShowRooms()) &&
-            rooms.map(room => this._printRoomDate({ roomName: room.roomName, date: room.lastMessageDate.date }));
+            selectedRooms.map(room =>
+                this._printRoomDate({ roomName: room.roomName, date: room.lastMessageDate.date }),
+            );
 
         if (await this.ask.isLeave()) {
-            return this._runLeaving(rooms);
+            return this._runLeaving(selectedRooms);
         }
     }
 
