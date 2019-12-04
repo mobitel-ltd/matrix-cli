@@ -53,7 +53,7 @@ const limitMonths = async initial => {
         initial,
         validate(num) {
             const months = Number(num);
-            return months > 1 && months < 13;
+            return months > 0 && months < 13;
         },
     });
 
