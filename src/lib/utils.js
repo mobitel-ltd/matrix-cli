@@ -87,7 +87,10 @@ const utils = {
             pick(['date', 'timestamp']),
         )(allMessages);
 
+        const alias = room.getCanonicalAlias();
+
         return {
+            alias,
             project,
             roomId,
             roomName,

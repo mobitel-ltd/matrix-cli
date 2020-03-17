@@ -49,6 +49,21 @@ const getMembers = bot => {
 const getRoom = (period, bot) => () => {
     const roomStub = createStubInstance(Room, {
         getJoinedMembers: stub().returns(getMembers(bot)),
+        getCanonicalAlias: stub().returns('#' + fake.random.alphaNumeric() + ':matrix.' + fakeDomain),
+    });
+
+    return {
+        ...roomStub,
+        roomId: fake.random.uuid(),
+        name: fake.random.word(),
+        timeline: Array.from({ length: 10 }, getEvent(period, bot)),
+    };
+};
+
+const getSingleRoom = (period, bot) => () => {
+    const roomStub = createStubInstance(Room, {
+        getJoinedMembers: stub().returns([{ userId: bot }]),
+        getCanonicalAlias: stub().returns('#' + fake.random.alphaNumeric() + ':matrix.' + fakeDomain),
     });
 
     return {
@@ -60,6 +75,7 @@ const getRoom = (period, bot) => () => {
 };
 
 const createRooms = (length, period, bot) => Array.from({ length }, getRoom(period, bot));
+const createSingleRooms = (length, period, bot) => Array.from({ length }, getSingleRoom(period, bot));
 const endDate = moment().subtract(limit, 'months');
 const startDate = '2017-01-01';
 
@@ -98,6 +114,11 @@ const createMatrixClientStub = ignoreUsers => {
         [endDate.add(1, 'day').format('YYYY-MM-DD'), moment().format('YYYY-MM-DD')],
         `@${botId}:${fakeDomain}`,
     );
+    const singleRoomNoMessages = createSingleRooms(
+        correctLength,
+        [endDate.add(1, 'day').format('YYYY-MM-DD'), moment().format('YYYY-MM-DD')],
+        `@${botId}:${fakeDomain}`,
+    );
 
     const oldRooms = createRooms(correctLength, [startDate, endDate.subtract(1, 'day').format('YYYY-MM-DD')]);
     const newRooms = createRooms(correctLength, [
@@ -106,7 +127,7 @@ const createMatrixClientStub = ignoreUsers => {
     ]);
 
     const manyMembersManyMessages = [...oldRooms, ...newRooms];
-    const allRooms = [...manyMembersManyMessages, ...manyMembersNoMessages];
+    const allRooms = [...manyMembersManyMessages, ...manyMembersNoMessages, ...singleRoomNoMessages];
 
     matrixClientStub.getUser.resolves('@user:matrix.example.com');
     matrixClientStub.getRooms = stub().resolves(allRooms);
@@ -119,6 +140,7 @@ const createMatrixClientStub = ignoreUsers => {
         allRooms,
         manyMembersNoMessages,
         manyMembersManyMessages,
+        singleRoomNoMessages,
     };
 };
 

@@ -36,10 +36,11 @@ module.exports = class {
     /**
      * Leave room recursive method
      * @param {Room[]} rooms
+     * @param {{deleteAlias: boolean}} [options]
      * @return {Promise<{errors: Error[], leavedRooms: Room[], errLeavedRooms: Room[]} | undefined>} errors and leaved rooms
      */
-    async _runLeaving(rooms) {
-        const res = await this.matrixService.leaveRooms(rooms);
+    async _runLeaving(rooms, options) {
+        const res = await this.matrixService.leaveRooms(rooms, options);
         const { errors, leavedRooms, errLeavedRooms } = res;
         leavedRooms.length && this.logger.log(chalk.green(`\nYou have leaved ${leavedRooms.length} rooms!!!\n`));
 
@@ -106,7 +107,7 @@ module.exports = class {
         const selectedRooms = await this.ask.selectRooms(rooms);
 
         if (selectedRooms.length && (await this.ask.isLeave())) {
-            return this._runLeaving(selectedRooms);
+            return this._runLeaving(selectedRooms, { deleteAlias: true });
         }
     }
 

@@ -29,6 +29,7 @@ describe('Testing actions for bin', () => {
     const allRooms = stubMatrixData.allRooms;
     const manyMembersNoMessages = stubMatrixData.manyMembersNoMessages;
     const manyMembersManyMessages = stubMatrixData.manyMembersManyMessages;
+    const singleRoomNoMessages = stubMatrixData.singleRoomNoMessages;
 
     const allRoomsWithMember = allRooms
         .map(getParsedRooms(ignoreUsers))
@@ -83,9 +84,19 @@ describe('Testing actions for bin', () => {
     });
 
     describe('Test leaveEmpty', () => {
+        beforeEach(() => {
+            askMock.selectRooms.callsFake(data => Promise.resolve(data));
+            askMock.isLeave.resolves(true);
+            matrixClientStub.deleteAlias.onFirstCall().rejects();
+        });
+
         it('Expect leaveEmpty return undefined single rooms dont exists', async () => {
-            const res = await actions.leaveEmpty();
-            expect(res).toBeUndefined();
+            const { errors, leavedRooms, errLeavedRooms } = await actions.leaveEmpty();
+
+            assert.callCount(matrixClientStub.deleteAlias, 9);
+            expect(errors).toHaveLength(2);
+            expect(leavedRooms).toHaveLength(correctLength - 2);
+            expect(errLeavedRooms).toHaveLength(2);
         });
     });
 
@@ -172,7 +183,7 @@ describe('Testing actions for bin', () => {
             expect(res).toEqual({
                 allRooms: allRooms.map(getParsedRooms(ignoreUsers)),
                 singleRoomsManyMessages: [],
-                singleRoomsNoMessages: [],
+                singleRoomsNoMessages: singleRoomNoMessages.map(getParsedRooms(ignoreUsers)),
                 manyMembersNoMessages: manyMembersNoMessages.map(getParsedRooms(ignoreUsers)),
                 manyMembersManyMessages: manyMembersManyMessages.map(getParsedRooms(ignoreUsers)),
             });

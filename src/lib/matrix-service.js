@@ -291,10 +291,12 @@ module.exports = class {
     }
 
     /**
-     * @param {{ roomId: string, roomName: string }[]} allRooms matrix rooms from getRooms
+     * @param {{ roomId: string, roomName: string, alias: string }[]} allRooms matrix rooms from getRooms
+     * @param {object} options extra options
+     * @param {boolean} [options.deleteAlias] delete or not alias
      * @return {Promise<{leavedRooms: { roomId: string, roomName: string }[], errLeavedRooms: { roomId: string, roomName: string }[], errors: object[]}>} errors and leaved rooms empty array
      */
-    async leaveRooms(allRooms) {
+    async leaveRooms(allRooms, options = {}) {
         const client = this.client || (await this.getClient());
         const leavedRooms = [];
         const errLeavedRooms = [];
@@ -314,15 +316,18 @@ module.exports = class {
             const roomsToHandle = rooms.slice(0, this.sliceAmount);
             const restRooms = rooms.slice(this.sliceAmount);
             try {
-                const preparedTasks = roomsToHandle.map(({ roomId, roomName }) => {
+                const preparedTasks = roomsToHandle.map(({ roomId, roomName, alias }) => {
                     const title = `Leaving room ${chalk.cyan(roomName)}`;
                     const task = async () => {
                         try {
                             await delay(this.delayTime);
                             await client.leave(roomId);
-                            leavedRooms.push({ roomId, roomName });
+                            if (options.deleteAlias && alias) {
+                                await client.deleteAlias(alias);
+                            }
+                            leavedRooms.push({ roomId, roomName, alias });
                         } catch (error) {
-                            errLeavedRooms.push({ roomId, roomName });
+                            errLeavedRooms.push({ roomId, roomName, alias });
                             throw error;
                         }
                     };
