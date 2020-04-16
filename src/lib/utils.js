@@ -22,6 +22,7 @@ const utils = {
         'Set power level 100 to selected rooms': 'setPower',
         'Stop and exit': stopAction,
         'Delete room alias': 'deleteAlias',
+        'Kick user from choosen room': 'kickUser'
     },
 
     isEnglish: val => /[\w]/.test(val),

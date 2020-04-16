@@ -161,7 +161,7 @@ module.exports = class {
      * @param {Object} room matrix room
      * @return {Boolean} is only user in romm
      */
-    async _isSingle(room) {}
+    async _isSingle(room) { }
 
     /**
      * @return {Promise<{allRooms: Room[], singleRoomsManyMessages: Room[], singleRoomsNoMessages: Room[], manyMembersNoMessages: Room[], manyMembersManyMessages: Room[]}>} matrix rooms
@@ -535,6 +535,23 @@ module.exports = class {
         } catch (err) {
             return err.errors;
         }
+    }
+
+    /**
+     *
+     * @param {string} userId matrix user id
+     * @param {string} roomId room id
+     */
+    async kickUser(userId, roomId) {
+        const client = this.client || (await this.getClient());
+        try {
+            await client.kick(roomId, userId, 'kick by bot');
+
+            return userId;
+        } catch (error) {
+            this.logger.error(error);
+        }
+
     }
 
     /**
