@@ -36,10 +36,11 @@ module.exports = class {
     /**
      * Leave room recursive method
      * @param {Room[]} rooms
+     * @param {{deleteAlias: boolean}} [options]
      * @return {Promise<{errors: Error[], leavedRooms: Room[], errLeavedRooms: Room[]} | undefined>} errors and leaved rooms
      */
-    async _runLeaving(rooms) {
-        const res = await this.matrixService.leaveRooms(rooms);
+    async _runLeaving(rooms, options) {
+        const res = await this.matrixService.leaveRooms(rooms, options);
         const { errors, leavedRooms, errLeavedRooms } = res;
         leavedRooms.length && this.logger.log(chalk.green(`\nYou have leaved ${leavedRooms.length} rooms!!!\n`));
 
@@ -106,7 +107,7 @@ module.exports = class {
         const selectedRooms = await this.ask.selectRooms(rooms);
 
         if (selectedRooms.length && (await this.ask.isLeave())) {
-            return this._runLeaving(selectedRooms);
+            return this._runLeaving(selectedRooms, { deleteAlias: true });
         }
     }
 
@@ -181,18 +182,40 @@ module.exports = class {
 
     /**
      * Select user from existing or print name
+     * @param {string[]} [users] users to select
      * @return {string} user id
      */
-    async _selectUser() {
+    async _selectUser(users) {
         const selectWays = {
             existing: async () => {
-                const knownUsers = await this.matrixService.getknownUsers();
+                const knownUsers = users || await this.matrixService.getknownUsers();
                 return this.ask.selectUser(knownUsers);
             },
             print: async () => {
                 const user = await this.ask.inputOne();
 
                 return user && this.matrixService.getUserId(user);
+            },
+        };
+        const userStrategy = await this.ask.selectUserStrategy();
+
+        return selectWays[userStrategy]();
+    }
+
+    /**
+    * Select user from existing or print name
+    * @return {Room} user id
+    */
+    async _selectRoom() {
+        const selectWays = {
+            existing: async () => {
+                const { allRooms } = await this.matrixService.getAllRoomsInfo();
+                return this.ask.selectRoomByInput(allRooms);
+            },
+            print: async () => {
+                const room = await this.ask.inputOne();
+
+                return room;
             },
         };
         const userStrategy = await this.ask.selectUserStrategy();
@@ -249,6 +272,40 @@ module.exports = class {
         if (await this.ask.isPowered()) {
             return iter(poweredRooms);
         }
+    }
+
+    /**
+     * kick user
+     */
+    async kickUser() {
+        const room = await this._selectRoom();
+
+        if (!room) {
+            this.logger.log(chalk.yellow('\nNo user is selected\n'));
+            return;
+        }
+
+        this.logger.info('Selected room with id ' + room.roomId);
+
+        const userIds = room.members.map(this.matrixService.getUserId.bind(this.matrixService));
+
+        const userId = await this._selectUser(userIds);
+
+        if (!userId) {
+            this.logger.log(chalk.yellow('\nNo user is selected\n'));
+            return;
+        }
+
+        const res = await this.matrixService.kickUser(userId, room.roomId);
+        if (res) {
+            this.logger.info(chalk.green(`\nUser ${userId} is kicked from room with id ${room.roomId}!!!\n`));
+
+            return true;
+        }
+
+        this.logger.warn('Something wrong. User ' + userId + ' is not kicked from room with id ' + room.roomId);
+
+        return true;
     }
 
     /**

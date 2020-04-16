@@ -102,7 +102,12 @@ const tryAgainForErrors = boolPrompt('Do you really want to do this command agai
 const isSend = async message => await boolPrompt(`Do you really want to send ${message} to ALL selected rooms???`)();
 
 const selectUser = async users => {
-    const preparedUsers = users.map(({ userId, displayName }) => ({ name: userId, message: displayName }));
+    const preparedUsers = users.map(user => {
+        return typeof user === 'string' ?
+            { name: user, message: user } :
+            { name: user.userId, message: user.displayName }
+    });
+
     const prompt = new AutoComplete({
         name: 'userId',
         message: chalk.blueBright('Select user'),
@@ -111,6 +116,24 @@ const selectUser = async users => {
     });
 
     return prompt.run();
+};
+
+/**
+ *
+ * @param {Room[]} rooms rooms
+ */
+const selectRoomByInput = async rooms => {
+    const preparedRooms = rooms.map(({ roomName }) => ({ name: roomName, message: roomName }));
+    const prompt = new AutoComplete({
+        name: 'roomId',
+        message: chalk.blueBright('Select room'),
+        limit: 5,
+        choices: preparedRooms,
+    });
+
+    const selected = await prompt.run();
+
+    return rooms.find(({ roomName }) => selected === roomName);
 };
 
 /**
@@ -246,4 +269,5 @@ module.exports = {
     tryAgainForErrors,
     isPowered,
     isDeleteAlias,
+    selectRoomByInput,
 };
